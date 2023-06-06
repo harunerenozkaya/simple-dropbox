@@ -79,7 +79,7 @@ int search_dir(const char* directory , dir_info_bibak* dir_info) {
     struct dirent* entry;
     while ((entry = readdir(dir)) != NULL) {
 
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0 && strcmp(entry->d_name, "log.txt")) {
             char path[1024];
             snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name);
 
@@ -164,13 +164,156 @@ char* generate_dir_info_str(dir_info_bibak* dir_info) {
     snprintf(result + strlen(result), buffer_size - strlen(result), "  ]\n");
     snprintf(result + strlen(result), buffer_size - strlen(result), "}\n");
 
-    printf("%s",result);
-
     return result;
 }
+
+// Convert string to dir_info
+dir_info_bibak parse_dir_info_str(const char* info_str) {
+    dir_info_bibak dir_info;
+
+    // Parse the total file count
+    const char* total_count_ptr = strstr(info_str, "total_file_count : ");
+    if (total_count_ptr != NULL) {
+        total_count_ptr += strlen("total_file_count : ");
+        dir_info.total_file_count = atoi(total_count_ptr);
+    }
+
+    // Parse the last modified time
+    const char* last_modified_ptr = strstr(info_str, "last_modified_time : \"");
+    if (last_modified_ptr != NULL) {
+        last_modified_ptr += strlen("last_modified_time : \"");
+        strncpy(dir_info.last_modified_time, last_modified_ptr, 19);
+        dir_info.last_modified_time[19] = '\0';
+    }
+
+    // Parse the files
+    const char* files_ptr = strstr(info_str, "files : [");
+    if (files_ptr != NULL) {
+        files_ptr += strlen("files : [");
+
+        // Allocate memory for the files
+        dir_info.files = malloc(dir_info.total_file_count * sizeof(file_bibak));
+
+        for (int i = 0; i < dir_info.total_file_count; i++) {
+            file_bibak* file = &(dir_info.files[i]);
+
+            // Parse the file name
+            const char* name_ptr = strstr(files_ptr, "name : \"");
+            if (name_ptr != NULL) {
+                name_ptr += strlen("name : \"");
+                const char* name_end_ptr = strchr(name_ptr, '\"');
+                if (name_end_ptr != NULL) {
+                    int name_length = name_end_ptr - name_ptr;
+                    file->name = malloc((name_length + 1) * sizeof(char));
+                    strncpy(file->name, name_ptr, name_length);
+                    file->name[name_length] = '\0';
+                }
+            }
+
+            // Parse the last modified time
+            const char* modified_time_ptr = strstr(files_ptr, "last_modified_time : \"");
+            if (modified_time_ptr != NULL) {
+                modified_time_ptr += strlen("last_modified_time : \"");
+                strncpy(file->last_modified_time, modified_time_ptr, 19);
+                file->last_modified_time[19] = '\0';
+            }
+
+            // Parse the file size
+            const char* size_ptr = strstr(files_ptr, "size : ");
+            if (size_ptr != NULL) {
+                size_ptr += strlen("size : ");
+                file->size = atoi(size_ptr);
+            }
+
+            // Parse the file path
+            const char* path_ptr = strstr(files_ptr, "path : \"");
+            if (path_ptr != NULL) {
+                path_ptr += strlen("path : \"");
+                const char* path_end_ptr = strchr(path_ptr, '\"');
+                if (path_end_ptr != NULL) {
+                    int path_length = path_end_ptr - path_ptr;
+                    file->path = malloc((path_length + 1) * sizeof(char));
+                    strncpy(file->path, path_ptr, path_length);
+                    file->path[path_length] = '\0';
+                }
+            }
+
+            // Move to the next file
+            files_ptr = strstr(files_ptr, "},") + strlen("},");
+        }
+    }
+
+    return dir_info;
+}
+
+//Read log file , parse it to dir_info and return dir_info
+dir_info_bibak read_log_file(const char* file_path) {
+    FILE* file = fopen(file_path, "r");
+    if (file == NULL) {
+        perror("Error opening log file");
+        exit(1);
+    }
+
+    // Get the size of the file
+    fseek(file, 0, SEEK_END);
+    long file_size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    // Allocate memory for the file content
+    char* file_content = malloc(file_size + 1);
+    if (file_content == NULL) {
+        fclose(file);
+        fprintf(stderr, "Memory allocation failed\n");
+        exit(1);
+    }
+
+    // Read the file content
+    size_t read_size = fread(file_content, 1, file_size, file);
+    file_content[read_size] = '\0';
+
+    // Close the file
+    fclose(file);
+
+    // Parse the directory information from the file content
+    dir_info_bibak dir_info = parse_dir_info_str(file_content);
+
+    // Free the allocated memory for file content
+    free(file_content);
+
+    return dir_info;
+}
+
+//Write the given dir_info by converting it to string
+void write_log_file(const char* file_path, dir_info_bibak* dir_info) {
+    FILE* file = fopen(file_path, "w");
+    if (file == NULL) {
+        perror("Error opening log file");
+        exit(1);
+    }
+
+    // Generate the string representation of the dir_info_bibak structure
+    char* dir_info_str = generate_dir_info_str(dir_info);
+    if (dir_info_str == NULL) {
+        fclose(file);
+        fprintf(stderr, "Failed to generate directory info string\n");
+        exit(1);
+    }
+
+    // Write the string to the file
+    fputs(dir_info_str, file);
+
+    // Close the file
+    fclose(file);
+
+    // Free the allocated memory for the directory info string
+    free(dir_info_str);
+}
+
 
 int main(){
     dir_info_bibak* dir_info = malloc(sizeof(dir_info_bibak));
     search_dir("./serverDir",dir_info);
-    generate_dir_info_str(dir_info);
+    write_log_file("./serverDir/log.txt",dir_info);
+    dir_info_bibak dir_info2 = read_log_file("./serverDir/log.txt");
+    printf("%s",generate_dir_info_str(&dir_info2));
 }
