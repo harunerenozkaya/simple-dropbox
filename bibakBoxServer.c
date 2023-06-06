@@ -69,6 +69,10 @@ int main(int argc, char* argv[]) {
 
     printf("SUCCESS : A client has been connected to server!\n");
 
+    while(1){
+        
+    }
+
     // Close the server socket
     close(serverSocket);
 
