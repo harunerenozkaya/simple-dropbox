@@ -1,3 +1,7 @@
+#Folders
+clientDir/
+serverDir/
+
 # Prerequisites
 *.d
 
