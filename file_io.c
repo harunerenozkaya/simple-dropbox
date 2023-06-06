@@ -6,21 +6,21 @@
 #include <time.h>
 
 typedef struct {
-    char* file_name;
+    char* name;
     char last_modified_time[20];
     int size;
     char* path; // Added path field
 } file_bibak;
 
 typedef struct {
-    int totalFileCount;
+    int total_file_count;
     char last_modified_time[20];
     file_bibak* files;
 } dir_info_bibak;
 
-//TODO if the file is main directory is not got last modified time 
 
-const char* getLatestTimestamp(const char* timestamp1, const char* timestamp2) {
+// Compare two time and return latest one
+const char* get_latest_timestamp(const char* timestamp1, const char* timestamp2) {
     if (strlen(timestamp1) == 0)
         return timestamp2;
     if (strlen(timestamp2) == 0)
@@ -68,7 +68,7 @@ const char* getLatestTimestamp(const char* timestamp1, const char* timestamp2) {
 }
 
 // Search the directory and generate a string representation of the directory information
-int searchDirectory(const char* directory , dir_info_bibak* dirInfo) {
+int search_dir(const char* directory , dir_info_bibak* dir_info) {
 
     DIR* dir = opendir(directory);
     if (dir == NULL) {
@@ -85,28 +85,28 @@ int searchDirectory(const char* directory , dir_info_bibak* dirInfo) {
 
             if (entry->d_type == DT_DIR) {
                 // Recursively search inner directories
-                searchDirectory(path, dirInfo);
+                search_dir(path, dir_info);
             } 
             
             else if (entry->d_type == DT_REG) {
-                dirInfo->totalFileCount++;
+                dir_info->total_file_count++;
                 struct stat fileStat;
 
                 char filePath[256];
                 sprintf(filePath, "%s/%s", directory, entry->d_name);
 
                 if (stat(filePath, &fileStat) == 0) {
-                    if (dirInfo->files == NULL) {
-                        dirInfo->files = malloc(sizeof(file_bibak));
+                    if (dir_info->files == NULL) {
+                        dir_info->files = malloc(sizeof(file_bibak));
                     } else {
-                        dirInfo->files = realloc(dirInfo->files, dirInfo->totalFileCount * sizeof(file_bibak));
+                        dir_info->files = realloc(dir_info->files, dir_info->total_file_count * sizeof(file_bibak));
                     }
 
                     //Take file pointer
-                    file_bibak* file = &(dirInfo->files[dirInfo->totalFileCount - 1]);
+                    file_bibak* file = &(dir_info->files[dir_info->total_file_count - 1]);
                     
                     //Assign file name
-                    file->file_name = strdup(entry->d_name);
+                    file->name = strdup(entry->d_name);
 
                     //Assign modified time
 
@@ -124,8 +124,8 @@ int searchDirectory(const char* directory , dir_info_bibak* dirInfo) {
                     file->path = strdup(relativePath);
                     
                     //Modify the directory last modified date by controlling this file last modified date
-                    const char* latest_modified = getLatestTimestamp(dirInfo->last_modified_time,file->last_modified_time);
-                    snprintf(dirInfo->last_modified_time,20,"%s",latest_modified);
+                    const char* latest_modified = get_latest_timestamp(dir_info->last_modified_time,file->last_modified_time);
+                    snprintf(dir_info->last_modified_time,20,"%s",latest_modified);
 
                 }
             }
@@ -136,7 +136,8 @@ int searchDirectory(const char* directory , dir_info_bibak* dirInfo) {
     return 0;
 }
 
-char* generateDirectoryInfoString(dir_info_bibak* dirInfo) {
+// Convert dir_info to string
+char* generate_dir_info_str(dir_info_bibak* dir_info) {
     // Allocate memory for the resulting string
     int buffer_size = 1024;
     char* result = malloc(buffer_size);
@@ -147,17 +148,17 @@ char* generateDirectoryInfoString(dir_info_bibak* dirInfo) {
 
     // Create the directory information string
     snprintf(result, buffer_size, "{\n");
-    snprintf(result + strlen(result), buffer_size - strlen(result), "  totalFileCount : %d,\n", dirInfo->totalFileCount);
-    snprintf(result + strlen(result), buffer_size - strlen(result), "  last_modified_time : \"%s\",\n", dirInfo->last_modified_time);
+    snprintf(result + strlen(result), buffer_size - strlen(result), "  total_file_count : %d,\n", dir_info->total_file_count);
+    snprintf(result + strlen(result), buffer_size - strlen(result), "  last_modified_time : \"%s\",\n", dir_info->last_modified_time);
     snprintf(result + strlen(result), buffer_size - strlen(result), "  files : [\n");
 
-    for (int i = 0; i < dirInfo->totalFileCount; i++) {
+    for (int i = 0; i < dir_info->total_file_count; i++) {
         snprintf(result + strlen(result), buffer_size - strlen(result), "    {\n");
-        snprintf(result + strlen(result), buffer_size - strlen(result), "      file_name : \"%s\",\n", dirInfo->files[i].file_name);
-        snprintf(result + strlen(result), buffer_size - strlen(result), "      last_modified_time : \"%s\",\n", dirInfo->files[i].last_modified_time);
-        snprintf(result + strlen(result), buffer_size - strlen(result), "      size : %d,\n", dirInfo->files[i].size);
-        snprintf(result + strlen(result), buffer_size - strlen(result), "      path : \"%s\"\n", dirInfo->files[i].path);
-        snprintf(result + strlen(result), buffer_size - strlen(result), "    }%s\n", i == dirInfo->totalFileCount - 1 ? "" : ",");
+        snprintf(result + strlen(result), buffer_size - strlen(result), "      name : \"%s\",\n", dir_info->files[i].name);
+        snprintf(result + strlen(result), buffer_size - strlen(result), "      last_modified_time : \"%s\",\n", dir_info->files[i].last_modified_time);
+        snprintf(result + strlen(result), buffer_size - strlen(result), "      size : %d,\n", dir_info->files[i].size);
+        snprintf(result + strlen(result), buffer_size - strlen(result), "      path : \"%s\"\n", dir_info->files[i].path);
+        snprintf(result + strlen(result), buffer_size - strlen(result), "    }%s\n", i == dir_info->total_file_count - 1 ? "" : ",");
     }
 
     snprintf(result + strlen(result), buffer_size - strlen(result), "  ]\n");
@@ -170,6 +171,6 @@ char* generateDirectoryInfoString(dir_info_bibak* dirInfo) {
 
 int main(){
     dir_info_bibak* dir_info = malloc(sizeof(dir_info_bibak));
-    searchDirectory("./serverDir",dir_info);
-    generateDirectoryInfoString(dir_info);
+    search_dir("./serverDir",dir_info);
+    generate_dir_info_str(dir_info);
 }

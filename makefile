@@ -1,10 +1,10 @@
 all:
-	gcc ./fileIO.c -o fileIO.o
+	gcc ./file_io.c -o file_io.o
 	gcc ./bibakBoxClient.c -o bibakBoxClient.o
 	gcc ./bibakBoxServer.c -o bibakBoxServer.o
 
 runFileIO:
-	./fileIO.o
+	./file_io.o
 	
 runClient : 
 	./bibakBoxClient.o ./clientDir 80
