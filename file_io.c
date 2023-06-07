@@ -168,14 +168,14 @@ char* generate_dir_info_str(dir_info_bibak* dir_info) {
 }
 
 // Convert string to dir_info
-dir_info_bibak parse_dir_info_str(const char* info_str) {
-    dir_info_bibak dir_info;
+dir_info_bibak* parse_dir_info_str(const char* info_str) {
+    dir_info_bibak* dir_info = malloc(sizeof(dir_info_bibak));
 
     // Parse the total file count
     const char* total_count_ptr = strstr(info_str, "total_file_count : ");
     if (total_count_ptr != NULL) {
         total_count_ptr += strlen("total_file_count : ");
-        dir_info.total_file_count = atoi(total_count_ptr);
+        dir_info->total_file_count = atoi(total_count_ptr);
     }
 
     // Parse the last modified time
@@ -185,11 +185,11 @@ dir_info_bibak parse_dir_info_str(const char* info_str) {
         const char* last_modified_end_ptr = strchr(last_modified_ptr, '\"');
         if (last_modified_end_ptr != NULL) {
             int last_modified_length = last_modified_end_ptr - last_modified_ptr;
-            strncpy(dir_info.last_modified_time, last_modified_ptr, last_modified_length);
-            dir_info.last_modified_time[last_modified_length] = '\0';
+            strncpy(dir_info->last_modified_time, last_modified_ptr, last_modified_length);
+            dir_info->last_modified_time[last_modified_length] = '\0';
         }
     } else {
-        strcpy(dir_info.last_modified_time, "");
+        strcpy(dir_info->last_modified_time, "");
     }
 
     // Parse the files
@@ -198,11 +198,11 @@ dir_info_bibak parse_dir_info_str(const char* info_str) {
         files_ptr += strlen("files : [");
 
         // Allocate memory for the files
-        dir_info.files = malloc(dir_info.total_file_count * sizeof(file_bibak));
+        dir_info->files = malloc(dir_info->total_file_count * sizeof(file_bibak));
 
-        if(dir_info.total_file_count != 0){
-            for (int i = 0; i < dir_info.total_file_count; i++) {
-                file_bibak* file = &(dir_info.files[i]);
+        if(dir_info->total_file_count != 0){
+            for (int i = 0; i < dir_info->total_file_count; i++) {
+                file_bibak* file = &(dir_info->files[i]);
 
                 // Parse the file name
                 const char* name_ptr = strstr(files_ptr, "name : \"");
@@ -255,7 +255,7 @@ dir_info_bibak parse_dir_info_str(const char* info_str) {
 }
 
 //Read log file , parse it to dir_info and return dir_info
-dir_info_bibak read_log_file(const char* file_path) {
+dir_info_bibak* read_log_file(const char* file_path) {
     FILE* file = fopen(file_path, "r");
     if (file == NULL) {
         perror("Error opening log file");
@@ -283,7 +283,7 @@ dir_info_bibak read_log_file(const char* file_path) {
     fclose(file);
     
     // Parse the directory information from the file content
-    dir_info_bibak dir_info = parse_dir_info_str(file_content);
+    dir_info_bibak* dir_info = parse_dir_info_str(file_content);
 
     // Free the allocated memory for file content
     free(file_content);
