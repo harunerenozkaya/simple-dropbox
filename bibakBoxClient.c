@@ -7,9 +7,12 @@
 #include "file_io.c"
 
 #define BUFFER_SIZE 1024
+int count = 0;
 
 void initialize_log_file(char* dir_name){
     dir_info_bibak* curr_dir_info = malloc(sizeof(dir_info_bibak));
+    curr_dir_info->total_file_count = 0;
+    curr_dir_info->last_modified_time[0] = '\0';
 
     //Create log file path
     char* log_file_path = malloc(strlen(dir_name) + strlen("/log.txt") + 1);
@@ -27,7 +30,11 @@ void initialize_log_file(char* dir_name){
 }
 
 void control_local_changes(char* dir_name,int client_socket){
+    //TODO
     dir_info_bibak* curr_dir_info = malloc(sizeof(dir_info_bibak));
+    curr_dir_info->total_file_count = 0;
+    curr_dir_info->last_modified_time[0] = '\0';
+
     dir_info_bibak* log_dir_info;
 
     // Take the current directory info
@@ -51,17 +58,27 @@ void control_local_changes(char* dir_name,int client_socket){
 
 
     // Free allocated memory
-    free(curr_dir_info->files);
-    free(log_dir_info->files);
+    for (int i = 0; i < curr_dir_info->total_file_count; i++) {
+        free(curr_dir_info->files[i].name);
+        free(curr_dir_info->files[i].path);
+    }
 
+    //free(curr_dir_info->files);
+    
     free(curr_dir_info);
-    free(log_dir_info);
+    
+    for (int i = 0; i < log_dir_info->total_file_count; i++) {
+        free(log_dir_info->files[i].name);
+        free(log_dir_info->files[i].path);
+    }
+
+    free(log_dir_info->files);
 
     free(current_str);
     free(log_str);
     free(log_file_path);
 
-    sleep(1);
+    count++;
 }
 
 void controlRemoteChanges(char* dirName,int clientSocket){
@@ -108,6 +125,8 @@ int main(int argc, char* argv[]) {
     while(1){
         control_local_changes(dirName,clientSocket);
         controlRemoteChanges(dirName,clientSocket);
+        if(count == 10)
+            break;
     }
 
     // Close the client socket

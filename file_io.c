@@ -92,21 +92,38 @@ int search_dir(const char* directory , dir_info_bibak* dir_info) {
                 dir_info->total_file_count++;
                 struct stat fileStat;
 
-                char filePath[256];
+                char filePath[1024];
                 sprintf(filePath, "%s/%s", directory, entry->d_name);
 
                 if (stat(filePath, &fileStat) == 0) {
                     if (dir_info->files == NULL) {
+                      
                         dir_info->files = malloc(sizeof(file_bibak));
                     } else {
-                        dir_info->files = realloc(dir_info->files, dir_info->total_file_count * sizeof(file_bibak));
-                    }
+                        //TODO
+                        file_bibak* new_files = malloc(dir_info->total_file_count * sizeof(file_bibak));
+                        if (new_files == NULL) {
+                            printf("errorrrrr\n");
+                        }
 
+                        // Copy the existing elements to the new block
+                        for (int i = 0; i < dir_info->total_file_count - 1; i++) {
+                            new_files[i] = dir_info->files[i];
+                        }
+
+                        // Free the memory occupied by the old block
+                        free(dir_info->files);
+
+                        // Update the files pointer to the new block
+                        dir_info->files = new_files;
+                    }
+    
                     //Take file pointer
                     file_bibak* file = &(dir_info->files[dir_info->total_file_count - 1]);
                     
                     //Assign file name
-                    file->name = strdup(entry->d_name);
+                    file->name = malloc(strlen(entry->d_name) + 1);
+                    strcpy(file->name, entry->d_name);
 
                     //Assign modified time
 
@@ -121,7 +138,8 @@ int search_dir(const char* directory , dir_info_bibak* dir_info) {
                     // Set file path
                     char relativePath[1024];
                     snprintf(relativePath, sizeof(relativePath), "%s", filePath);
-                    file->path = strdup(relativePath);
+                    file->path = malloc(strlen(relativePath) + 1);
+                    strcpy(file->path, relativePath);
                     
                     //Modify the directory last modified date by controlling this file last modified date
                     const char* latest_modified = get_latest_timestamp(dir_info->last_modified_time,file->last_modified_time);
@@ -169,7 +187,11 @@ char* generate_dir_info_str(dir_info_bibak* dir_info) {
 
 // Convert string to dir_info
 dir_info_bibak* parse_dir_info_str(const char* info_str) {
+    //TODO
+
     dir_info_bibak* dir_info = malloc(sizeof(dir_info_bibak));
+    dir_info->total_file_count = 0;
+    dir_info->last_modified_time[0] = '\0';
 
     // Parse the total file count
     const char* total_count_ptr = strstr(info_str, "total_file_count : ");
@@ -211,6 +233,7 @@ dir_info_bibak* parse_dir_info_str(const char* info_str) {
                     const char* name_end_ptr = strchr(name_ptr, '\"');
                     if (name_end_ptr != NULL) {
                         int name_length = name_end_ptr - name_ptr;
+                        //TODO
                         file->name = malloc((name_length + 1) * sizeof(char));
                         strncpy(file->name, name_ptr, name_length);
                         file->name[name_length] = '\0';
@@ -239,6 +262,7 @@ dir_info_bibak* parse_dir_info_str(const char* info_str) {
                     const char* path_end_ptr = strchr(path_ptr, '\"');
                     if (path_end_ptr != NULL) {
                         int path_length = path_end_ptr - path_ptr;
+                        //TODO
                         file->path = malloc((path_length + 1) * sizeof(char));
                         strncpy(file->path, path_ptr, path_length);
                         file->path[path_length] = '\0';
@@ -315,6 +339,22 @@ void write_log_file(const char* file_path, dir_info_bibak* dir_info) {
 
     // Free the allocated memory for the directory info string
     free(dir_info_str);
+}
+
+// Cleanup the allocated memory in dir_info
+void cleanup_dir_info(dir_info_bibak* dir_info) {
+    if (dir_info == NULL)
+        return;
+
+    if (dir_info->files != NULL) {
+        for (int i = 0; i < dir_info->total_file_count; i++) {
+            free(dir_info->files[i].name);
+            free(dir_info->files[i].path);
+        }
+        free(dir_info->files);
+    }
+
+    free(dir_info);
 }
 
 /*
