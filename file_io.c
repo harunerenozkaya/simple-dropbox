@@ -9,7 +9,7 @@ typedef struct {
     char* name;
     char last_modified_time[20];
     int size;
-    char* path; // Added path field
+    char* path;
 } file_bibak;
 
 typedef struct {
@@ -139,7 +139,6 @@ int search_dir(const char* directory , dir_info_bibak* dir_info) {
                       
                         dir_info->files = malloc(sizeof(file_bibak));
                     } else {
-                        //TODO
                         file_bibak* new_files = malloc(dir_info->total_file_count * sizeof(file_bibak));
                         if (new_files == NULL) {
                             printf("errorrrrr\n");
@@ -168,7 +167,7 @@ int search_dir(const char* directory , dir_info_bibak* dir_info) {
 
                     time_t modifiedTime = fileStat.st_mtime;
                     struct tm* timeInfo = localtime(&modifiedTime);
-
+                    
                     strftime(file->last_modified_time, 20, "%Y-%m-%d %H:%M:%S", timeInfo);
 
                     //Assign file size
@@ -238,11 +237,10 @@ char* generate_dir_info_str(dir_info_bibak* dir_info) {
 
 // Convert string to dir_info
 dir_info_bibak* parse_dir_info_str(const char* info_str) {
-    //TODO
-
     dir_info_bibak* dir_info = malloc(sizeof(dir_info_bibak));
     dir_info->total_file_count = 0;
     dir_info->last_modified_time[0] = '\0';
+    dir_info->files = NULL;
 
     // Parse the total file count
     const char* total_count_ptr = strstr(info_str, "total_file_count : ");
@@ -283,8 +281,7 @@ dir_info_bibak* parse_dir_info_str(const char* info_str) {
                     name_ptr += strlen("name : \"");
                     const char* name_end_ptr = strchr(name_ptr, '\"');
                     if (name_end_ptr != NULL) {
-                        int name_length = name_end_ptr - name_ptr;
-                        //TODO
+                        int name_length = name_end_ptr - name_ptr;                      
                         file->name = malloc((name_length + 1) * sizeof(char));
                         strncpy(file->name, name_ptr, name_length);
                         file->name[name_length] = '\0';
@@ -313,7 +310,6 @@ dir_info_bibak* parse_dir_info_str(const char* info_str) {
                     const char* path_end_ptr = strchr(path_ptr, '\"');
                     if (path_end_ptr != NULL) {
                         int path_length = path_end_ptr - path_ptr;
-                        //TODO
                         file->path = malloc((path_length + 1) * sizeof(char));
                         strncpy(file->path, path_ptr, path_length);
                         file->path[path_length] = '\0';

@@ -41,7 +41,7 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
     dir_info_bibak* new_log_dir_info = malloc(sizeof(dir_info_bibak));
     new_log_dir_info->total_file_count = 0;
     new_log_dir_info->last_modified_time[0] = '\0';
-    new_log_dir_info->files = malloc(0);
+    new_log_dir_info->files = NULL;
 
     int isFound = 0;
     printf("curr_dir_info->total_file_count : %d\n",curr_dir_info->total_file_count);
@@ -110,26 +110,26 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
         free(log_file_path);
     }
     else{
-        printf("There is no change!");
+        printf("There is no change!\n");
     }
-    
+
     //Free new log file struct allocated memory
     for (int i = 0; i < new_log_dir_info->total_file_count; i++) {
-        //free(new_log_dir_info->files[i].name);
-        //free(new_log_dir_info->files[i].path);
+        free(new_log_dir_info->files[i].name);
+        free(new_log_dir_info->files[i].path);
     }
 
     free(new_log_dir_info->files);
     free(new_log_dir_info);
-    
+
     return 0;
 }
 
 void control_local_changes(char* dir_name,int client_socket){
-    //TODO
     dir_info_bibak* curr_dir_info = malloc(sizeof(dir_info_bibak));
     curr_dir_info->total_file_count = 0;
     curr_dir_info->last_modified_time[0] = '\0';
+    curr_dir_info->files = NULL;
 
     dir_info_bibak* log_dir_info;
 
@@ -168,21 +168,23 @@ void control_local_changes(char* dir_name,int client_socket){
     requests = NULL;
 
     for (int i = 0; i < curr_dir_info->total_file_count; i++) {
-        //free(curr_dir_info->files[i].name);
-        //free(curr_dir_info->files[i].path);
+        free(curr_dir_info->files[i].name);
+        free(curr_dir_info->files[i].path);
     }
-
-    //free(curr_dir_info->files);
     
+    if(curr_dir_info->total_file_count > 0)
+        free(curr_dir_info->files);
+
     free(curr_dir_info);
     
     for (int i = 0; i < log_dir_info->total_file_count; i++) {
-        //free(log_dir_info->files[i].name);
-        //free(log_dir_info->files[i].path);
+        free(log_dir_info->files[i].name);
+        free(log_dir_info->files[i].path);
     }
 
     free(log_dir_info->files);
 
+    free(log_dir_info);
     free(log_file_path);
 
     count++;
