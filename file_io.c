@@ -18,6 +18,18 @@ typedef struct {
     file_bibak* files;
 } dir_info_bibak;
 
+void buffer_reallocation(char* result,int buffer_size){
+    if(strlen(result) + 200 > buffer_size){
+        char* temp = realloc(result, buffer_size*2);
+        if (temp == NULL) {
+            fprintf(stderr, "Memory reallocation failed!\n");
+            free(result);
+        }
+        strcpy(temp,result);
+        free(result);
+        result = temp;
+    }
+}
 
 // Compare two time and return latest one
 const char* get_latest_timestamp(const char* timestamp1, const char* timestamp2) {
@@ -157,7 +169,7 @@ int search_dir(const char* directory , dir_info_bibak* dir_info) {
 // Convert dir_info to string
 char* generate_dir_info_str(dir_info_bibak* dir_info) {
     // Allocate memory for the resulting string
-    int buffer_size = 1024;
+    int buffer_size = 100000000;
     char* result = malloc(buffer_size);
     if (result == NULL) {
         fprintf(stderr, "Memory allocation failed!\n");
@@ -166,21 +178,33 @@ char* generate_dir_info_str(dir_info_bibak* dir_info) {
     
     // Create the directory information string
     snprintf(result, buffer_size, "{\n");
+    //buffer_reallocation(result,buffer_size);
     snprintf(result + strlen(result), buffer_size - strlen(result), "  total_file_count : %d,\n", dir_info->total_file_count);
+    //buffer_reallocation(result,buffer_size);
     snprintf(result + strlen(result), buffer_size - strlen(result), "  last_modified_time : \"%s\",\n", dir_info->last_modified_time);
+    //buffer_reallocation(result,buffer_size);
     snprintf(result + strlen(result), buffer_size - strlen(result), "  files : [\n");
+    //buffer_reallocation(result,buffer_size);
 
     for (int i = 0; i < dir_info->total_file_count; i++) {
         snprintf(result + strlen(result), buffer_size - strlen(result), "    {\n");
+        //buffer_reallocation(result,buffer_size);
         snprintf(result + strlen(result), buffer_size - strlen(result), "      name : \"%s\",\n", dir_info->files[i].name);
+        //buffer_reallocation(result,buffer_size);
         snprintf(result + strlen(result), buffer_size - strlen(result), "      last_modified_time : \"%s\",\n", dir_info->files[i].last_modified_time);
+        //buffer_reallocation(result,buffer_size);
         snprintf(result + strlen(result), buffer_size - strlen(result), "      size : %d,\n", dir_info->files[i].size);
+        //buffer_reallocation(result,buffer_size);
         snprintf(result + strlen(result), buffer_size - strlen(result), "      path : \"%s\"\n", dir_info->files[i].path);
+        //buffer_reallocation(result,buffer_size);
         snprintf(result + strlen(result), buffer_size - strlen(result), "    }%s\n", i == dir_info->total_file_count - 1 ? "" : ",");
+        //buffer_reallocation(result,buffer_size);
     }
 
     snprintf(result + strlen(result), buffer_size - strlen(result), "  ]\n");
+    //buffer_reallocation(result,buffer_size);
     snprintf(result + strlen(result), buffer_size - strlen(result), "}\n");
+    //buffer_reallocation(result,buffer_size);
 
     return result;
 }

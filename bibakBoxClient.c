@@ -86,8 +86,8 @@ void control_local_changes(char* dir_name,int client_socket){
     free(requests);
 
     for (int i = 0; i < curr_dir_info->total_file_count; i++) {
-        free(curr_dir_info->files[i].name);
-        free(curr_dir_info->files[i].path);
+        //free(curr_dir_info->files[i].name);
+        //free(curr_dir_info->files[i].path);
     }
 
     //free(curr_dir_info->files);
