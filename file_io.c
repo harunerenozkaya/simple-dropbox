@@ -79,6 +79,33 @@ const char* get_latest_timestamp(const char* timestamp1, const char* timestamp2)
     return timestamp1;
 }
 
+void add_file_to_dir(dir_info_bibak* dir_info, file_bibak file) {
+    // Increase the total_file_count
+    dir_info->total_file_count++;
+
+    // Update the last_modified_time if the file's last_modified_time is the latest
+    const char* latest_time = get_latest_timestamp(dir_info->last_modified_time, file.last_modified_time);
+    strcpy(dir_info->last_modified_time, latest_time);
+
+    // Reallocate memory for files array to accommodate the new file
+    dir_info->files = realloc(dir_info->files, dir_info->total_file_count * sizeof(file_bibak));
+
+    // Add the file to the files array
+    file_bibak new_file;
+
+    new_file.name = malloc(strlen(file.name) + 1);
+    strcpy(new_file.name, file.name);
+
+    strcpy(new_file.last_modified_time, file.last_modified_time);
+
+    new_file.size = file.size;
+
+    new_file.path = malloc(strlen(file.path) + 1);
+    strcpy(new_file.path, file.path);
+
+    dir_info->files[dir_info->total_file_count - 1] = new_file;
+}
+
 // Search the directory and generate a string representation of the directory information
 int search_dir(const char* directory , dir_info_bibak* dir_info) {
 

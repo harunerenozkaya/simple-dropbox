@@ -34,8 +34,12 @@ void initialize_log_file(char* dir_name){
     free(log_file_path);
 }
 
-request* compare_log_and_current_dir(dir_info_bibak* curr_dir_info, dir_info_bibak* log_dir_info){
+request* compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, dir_info_bibak* log_dir_info){
     request* requests;
+    dir_info_bibak* new_log_dir_info = malloc(sizeof(dir_info_bibak));
+    new_log_dir_info->total_file_count = 0;
+    new_log_dir_info->last_modified_time[0] = '\0';
+    new_log_dir_info->files = malloc(0);
 
     int isFound = 0;
     printf("curr_dir_info->total_file_count : %d\n",curr_dir_info->total_file_count);
@@ -45,7 +49,7 @@ request* compare_log_and_current_dir(dir_info_bibak* curr_dir_info, dir_info_bib
 
     if(curr_dir_info->total_file_count != log_dir_info->total_file_count || strcmp(curr_dir_info->last_modified_time ,log_dir_info->last_modified_time) != 0){
         
-        //Search current files in log file
+        //Search current files in the log file
         for(int i = 0; i < curr_dir_info->total_file_count; i++){
             isFound = 0;
             for(int j = 0; j < log_dir_info->total_file_count; j++){
@@ -60,6 +64,7 @@ request* compare_log_and_current_dir(dir_info_bibak* curr_dir_info, dir_info_bib
                         printf("UPDATE : %s\n",curr_dir_info->files[i].name);
                     }
 
+                    add_file_to_dir(new_log_dir_info,curr_dir_info->files[i]);
                     break;
                 }
             }
@@ -67,6 +72,7 @@ request* compare_log_and_current_dir(dir_info_bibak* curr_dir_info, dir_info_bib
             if(isFound == 0){
                 // File is added new , post request to server the upload the file
                 printf("UPLOAD : %s\n",curr_dir_info->files[i].name);
+                add_file_to_dir(new_log_dir_info,curr_dir_info->files[i]);
             }
         }
 
@@ -88,6 +94,22 @@ request* compare_log_and_current_dir(dir_info_bibak* curr_dir_info, dir_info_bib
             }
         }
 
+        //Create log file path
+        char* log_file_path = malloc(strlen(dir_name) + strlen("/log.txt") + 1);
+        strcpy(log_file_path, dir_name);
+        strcat(log_file_path, "/log.txt");
+
+        //Update log file
+        write_log_file(log_file_path,new_log_dir_info);
+
+        //Free new log file struct allocated memory
+        for (int i = 0; i < new_log_dir_info->total_file_count; i++) {
+            //free(new_log_dir_info->files[i].name);
+            //free(new_log_dir_info->files[i].path);
+        }
+        free(new_log_dir_info->files);
+        free(new_log_dir_info);
+        free(log_file_path);
         requests = malloc(0);
     }
     else{
@@ -130,7 +152,7 @@ void control_local_changes(char* dir_name,int client_socket){
     printf("\n===============================\n");
 
 
-    request* requests = compare_log_and_current_dir(curr_dir_info,log_dir_info);
+    request* requests = compare_log_and_current_dir(dir_name,curr_dir_info,log_dir_info);
 
 
     // Free allocated memory
