@@ -143,7 +143,7 @@ int search_dir(const char* directory , dir_info_bibak* dir_info) {
                     
                     //Modify the directory last modified date by controlling this file last modified date
                     const char* latest_modified = get_latest_timestamp(dir_info->last_modified_time,file->last_modified_time);
-                    snprintf(dir_info->last_modified_time,20,"%s",latest_modified);
+                    strcpy(dir_info->last_modified_time,latest_modified);
 
                 }
             }

@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
-#include "file_io.c"
+#include "network_io.c"
 
 #define BUFFER_SIZE 1024
 int count = 0;
@@ -27,6 +27,28 @@ void initialize_log_file(char* dir_name){
 
     free(curr_dir_info);
     free(log_file_path);
+}
+
+request* compare_log_and_current_dir(dir_info_bibak* curr_dir_info, dir_info_bibak* log_dir_info){
+    request* requests;
+
+    if(curr_dir_info->total_file_count != log_dir_info->total_file_count && curr_dir_info->last_modified_time != log_dir_info->last_modified_time){
+        for(int i = 0; i < curr_dir_info->total_file_count; i++){
+            for(int j = 0; j < log_dir_info->total_file_count; j++){
+
+            }
+        }
+        requests = malloc(0);
+    }
+    else{
+        requests = malloc(0);
+    }
+
+    
+    printf("count curr : %d\n",curr_dir_info->total_file_count);
+    printf("count log : %d\n",log_dir_info->total_file_count);
+
+    return requests;
 }
 
 void control_local_changes(char* dir_name,int client_socket){
@@ -57,7 +79,12 @@ void control_local_changes(char* dir_name,int client_socket){
     printf("\n===============================\n");
 
 
+    request* requests = compare_log_and_current_dir(curr_dir_info,log_dir_info);
+
+
     // Free allocated memory
+    free(requests);
+
     for (int i = 0; i < curr_dir_info->total_file_count; i++) {
         free(curr_dir_info->files[i].name);
         free(curr_dir_info->files[i].path);
@@ -68,8 +95,8 @@ void control_local_changes(char* dir_name,int client_socket){
     free(curr_dir_info);
     
     for (int i = 0; i < log_dir_info->total_file_count; i++) {
-        free(log_dir_info->files[i].name);
-        free(log_dir_info->files[i].path);
+        //free(log_dir_info->files[i].name);
+        //free(log_dir_info->files[i].path);
     }
 
     free(log_dir_info->files);
@@ -125,8 +152,7 @@ int main(int argc, char* argv[]) {
     while(1){
         control_local_changes(dirName,clientSocket);
         controlRemoteChanges(dirName,clientSocket);
-        if(count == 10)
-            break;
+        sleep(3);
     }
 
     // Close the client socket
