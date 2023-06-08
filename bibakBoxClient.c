@@ -34,8 +34,10 @@ void initialize_log_file(char* dir_name){
     free(log_file_path);
 }
 
-request* compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, dir_info_bibak* log_dir_info){
-    request* requests;
+int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, dir_info_bibak* log_dir_info ,request* requests){
+    int requestCount = 0;
+    int isThereChange = 0;
+
     dir_info_bibak* new_log_dir_info = malloc(sizeof(dir_info_bibak));
     new_log_dir_info->total_file_count = 0;
     new_log_dir_info->last_modified_time[0] = '\0';
@@ -47,54 +49,57 @@ request* compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_inf
     printf("curr_dir_info->last_modified_time  : %s\n",curr_dir_info->last_modified_time);
     printf("log_dir_info->last_modified_time  : %s\n",log_dir_info->last_modified_time);
 
-    if(curr_dir_info->total_file_count != log_dir_info->total_file_count || strcmp(curr_dir_info->last_modified_time ,log_dir_info->last_modified_time) != 0){
-        
-        //Search current files in the log file
-        for(int i = 0; i < curr_dir_info->total_file_count; i++){
-            isFound = 0;
-            for(int j = 0; j < log_dir_info->total_file_count; j++){
-                if( strcmp(curr_dir_info->files[i].name , log_dir_info->files[j].name) == 0 && 
-                    strcmp(curr_dir_info->files[i].path , log_dir_info->files[j].path) == 0){
-                    //File is found.
-                    isFound = 1;
+    
+    //Search current files in the log file
+    for(int i = 0; i < curr_dir_info->total_file_count; i++){
+        isFound = 0;
+        for(int j = 0; j < log_dir_info->total_file_count; j++){
+            if( strcmp(curr_dir_info->files[i].name , log_dir_info->files[j].name) == 0 && 
+                strcmp(curr_dir_info->files[i].path , log_dir_info->files[j].path) == 0){
+                //File is found.
+                isFound = 1;
 
-                    if(strcmp(curr_dir_info->files[i].last_modified_time,log_dir_info->files[j].last_modified_time) != 0){
-                        // The last modified time is different of log and current file so it has modified.
-                        // Post request to server to the update the file
-                        printf("UPDATE : %s\n",curr_dir_info->files[i].name);
-                    }
-
-                    add_file_to_dir(new_log_dir_info,curr_dir_info->files[i]);
-                    break;
+                if(strcmp(curr_dir_info->files[i].last_modified_time,log_dir_info->files[j].last_modified_time) != 0){
+                    // The last modified time is different of log and current file so it has modified.
+                    // Post request to server to the update the file
+                    printf("UPDATE : %s\n",curr_dir_info->files[i].name);
+                    isThereChange = 1;
                 }
-            }
 
-            if(isFound == 0){
-                // File is added new , post request to server the upload the file
-                printf("UPLOAD : %s\n",curr_dir_info->files[i].name);
                 add_file_to_dir(new_log_dir_info,curr_dir_info->files[i]);
+                break;
             }
         }
 
-        //Search log files in current files to determine deleted files
-        for(int i = 0; i < log_dir_info->total_file_count; i++){
-            isFound = 0;
-            for(int j = 0; j < curr_dir_info->total_file_count; j++){
-                if( strcmp(log_dir_info->files[i].name , curr_dir_info->files[j].name) == 0 && 
-                    strcmp(log_dir_info->files[i].path , curr_dir_info->files[j].path) == 0){
-                    //File is found.
-                    isFound = 1;
-                    break;
-                }
-            }
+        if(isFound == 0){
+            // File is added new , post request to server the upload the file
+            printf("UPLOAD : %s\n",curr_dir_info->files[i].name);
+            isThereChange = 1;
+            add_file_to_dir(new_log_dir_info,curr_dir_info->files[i]);
+        }
+    }
 
-            if(isFound == 0){
-                // File is deleted , post request to server the delete the file
-                printf("DELETE : %s\n",log_dir_info->files[i].name);
+    //Search log files in current files to determine deleted files
+    for(int i = 0; i < log_dir_info->total_file_count; i++){
+        isFound = 0;
+        for(int j = 0; j < curr_dir_info->total_file_count; j++){
+            if( strcmp(log_dir_info->files[i].name , curr_dir_info->files[j].name) == 0 && 
+                strcmp(log_dir_info->files[i].path , curr_dir_info->files[j].path) == 0){
+                //File is found.
+                isFound = 1;
+                break;
             }
         }
 
-        //Create log file path
+        if(isFound == 0){
+            // File is deleted , post request to server the delete the file
+            printf("DELETE : %s\n",log_dir_info->files[i].name);
+            isThereChange = 1;
+        }
+    }
+
+    //Create log file path
+    if(isThereChange == 1){
         char* log_file_path = malloc(strlen(dir_name) + strlen("/log.txt") + 1);
         strcpy(log_file_path, dir_name);
         strcat(log_file_path, "/log.txt");
@@ -102,26 +107,22 @@ request* compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_inf
         //Update log file
         write_log_file(log_file_path,new_log_dir_info);
 
-        //Free new log file struct allocated memory
-        for (int i = 0; i < new_log_dir_info->total_file_count; i++) {
-            //free(new_log_dir_info->files[i].name);
-            //free(new_log_dir_info->files[i].path);
-        }
-        free(new_log_dir_info->files);
-        free(new_log_dir_info);
         free(log_file_path);
-        requests = malloc(0);
     }
     else{
-        printf("There is no changes\n");
-        requests = malloc(0);
+        printf("There is no change!");
+    }
+    
+    //Free new log file struct allocated memory
+    for (int i = 0; i < new_log_dir_info->total_file_count; i++) {
+        //free(new_log_dir_info->files[i].name);
+        //free(new_log_dir_info->files[i].path);
     }
 
+    free(new_log_dir_info->files);
+    free(new_log_dir_info);
     
-    //printf("count curr : %d\n",curr_dir_info->total_file_count);
-    //printf("count log : %d\n",log_dir_info->total_file_count);
-
-    return requests;
+    return 0;
 }
 
 void control_local_changes(char* dir_name,int client_socket){
@@ -144,19 +145,27 @@ void control_local_changes(char* dir_name,int client_socket){
     log_dir_info = read_log_file(log_file_path);
 
     // Print the current directory and log file directory
+    /*
     printf("\n===============================\n");
     char* current_str = generate_dir_info_str(curr_dir_info);
     char* log_str = generate_dir_info_str(log_dir_info);
     printf("Current : \n%s",current_str);
     printf("\nLog File : \n%s",log_str);
     printf("\n===============================\n");
+    free(current_str);
+    free(log_str);
+    */
 
-
-    request* requests = compare_log_and_current_dir(dir_name,curr_dir_info,log_dir_info);
+    printf("\n===============================\n");
+    request* requests = malloc(0);
+    int request_count = compare_log_and_current_dir(dir_name,curr_dir_info,log_dir_info,requests);
+    printf("\n===============================\n");
 
 
     // Free allocated memory
+
     free(requests);
+    requests = NULL;
 
     for (int i = 0; i < curr_dir_info->total_file_count; i++) {
         //free(curr_dir_info->files[i].name);
@@ -174,8 +183,6 @@ void control_local_changes(char* dir_name,int client_socket){
 
     free(log_dir_info->files);
 
-    free(current_str);
-    free(log_str);
     free(log_file_path);
 
     count++;
