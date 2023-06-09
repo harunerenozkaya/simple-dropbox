@@ -7,10 +7,20 @@ typedef enum {
     UPDATE
 } request_type;
 
+typedef enum {
+    DONE,
+    ERROR
+} response_status;
+
 typedef struct {
     request_type request_t;
     file_bibak file;
 } request;
+
+typedef struct {
+    response_status response_t;
+    file_bibak file;
+} response;
 
 //Create a request with given parametes and assign to req
 int create_request(request* req,request_type request_t, file_bibak file) {
@@ -32,6 +42,30 @@ int create_request(request* req,request_type request_t, file_bibak file) {
 
     //copy file size
     req->file.size = file.size;
+
+    return 0;
+}
+
+//Create a response with given parametes and assign to res
+int create_response(response* res,response_status response_t, file_bibak file) {
+    //copy request type
+    res->response_t = response_t;
+
+    //copy file name
+    res->file.name = NULL;
+    res->file.name = malloc(strlen(file.name) + 1);
+    strcpy(res->file.name,file.name);
+
+    //copy file path
+    res->file.path = NULL;
+    res->file.path = malloc(strlen(file.path) + 1);
+    strcpy(res->file.path,file.path);
+
+    //copy last_modified_time
+    strcpy(res->file.last_modified_time,file.last_modified_time);
+
+    //copy file size
+    res->file.size = file.size;
 
     return 0;
 }

@@ -23,7 +23,7 @@ void *handle_client(void *arg) {
 
     while (1) {
         // Read data from the client
-        char buffer[1000];
+        char buffer[1024];
         memset(buffer, 0, sizeof(buffer));
         int n = read(client_socket, buffer, sizeof(buffer));
         if (n < 0) {
@@ -42,6 +42,35 @@ void *handle_client(void *arg) {
         printf("file_size:: %d\n",req->file.size);
         printf("file_path: %s\n",req->file.path);
         printf("\n===============================\n");
+
+        switch(req->request_t){
+            //UPLOAD
+            case 0:
+                memset(buffer, 0, sizeof(buffer));
+                read(client_socket, buffer, sizeof(buffer));
+                int file_data_length = buffer[0];
+
+                printf("size:%d\n",file_data_length);
+                                
+                int bytesRead = 0;
+                int writedByte = 0;
+                while (writedByte < file_data_length && (bytesRead = read(client_socket, buffer, sizeof(buffer))) > 0) {
+                    // Process the received data
+                    writedByte += bytesRead;
+                    printf("Buffer:%s\n",buffer);
+                }
+
+                break;
+            //DOWNLOAD
+            case 1:
+                break;
+            //DELETE
+            case 2:
+                break;
+            //UPDATE
+            case 3:
+                break;
+        }
 
 
 
@@ -107,7 +136,7 @@ int main(int argc, char* argv[]) {
     }
 
     printf("SUCCESS : Server has been established !\n");
-    printf("Server listening on port 8888\n");
+    printf("Server listening on port %d\n",portNumber);
 
     // Create a thread pool
     pthread_t thread_pool[thread_pool_size];

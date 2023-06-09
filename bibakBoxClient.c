@@ -43,7 +43,7 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
     new_log_dir_info->files = NULL;
 
     int isFound = 0;
-    
+
     /*
     //Print log and current dir main attributes
     printf("curr_dir_info->total_file_count : %d\n",curr_dir_info->total_file_count);
@@ -130,7 +130,7 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
         free(log_file_path);
     }
     else{
-        printf("There is no change!");
+        //printf("There is no change!");
     }
 
     //Free new log file struct allocated memory
@@ -176,9 +176,9 @@ int control_local_changes(char* dir_name,int client_socket ,request** requests){
     free(log_str);
     */
     
-    printf("\n===============================\n");
+    //printf("\n===============================\n");
     int request_count = compare_log_and_current_dir(dir_name,curr_dir_info,log_dir_info,requests);
-    printf("\n===============================\n");
+    //printf("\n===============================\n");
     
 
     // Free allocated memory
@@ -255,7 +255,7 @@ int main(int argc, char* argv[]) {
 
         //Send to server
         for(int i = 0; i < request_count; i++){
-            int buffer_size = 1000;
+            int buffer_size = 1024;
             char buffer[buffer_size];
             memset(buffer, 0, sizeof(buffer));
 
@@ -264,8 +264,54 @@ int main(int argc, char* argv[]) {
             strcpy(buffer,request_json);
 
             send(clientSocket, buffer, sizeof(buffer), 0);
-            
+
             free(request_json);
+
+            switch(requests[i].request_t){
+                //UPLOAD
+                case 0:
+                    memset(buffer, 0, sizeof(buffer));
+                    
+                    FILE *file = fopen(requests->file.path, "rb");
+                    if (file == NULL) {
+                        perror("Error opening source file");
+                        continue;
+                    }
+
+                    fseek(file, 0, SEEK_END); // Move the file pointer to the end of the file
+                    long file_size = ftell(file); // Get the file size
+                    fseek(file, 0, SEEK_SET); // Move the file pointer back to the beginning of the file
+
+
+                    //Send the file content data size to server
+                    buffer[0] = file_size;
+                    send(clientSocket,buffer,sizeof(buffer), 0);
+
+                    //Read the file and senf to the server by writing data to buffer
+                    memset(buffer,'\0',sizeof(buffer));
+
+                    //If there is content in the file
+                    while ((int bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file)) > 0) {
+                        int n = write(clientSocket, buffer, bytesRead);
+                        if (n < 0) {
+                            perror("Error writing to socket");
+                        }
+                    }
+                    
+                    //Close the file
+                    fclose(file);
+
+                    break;
+                //DOWNLOAD
+                case 1:
+                    break;
+                //DELETE
+                case 2:
+                    break;
+                //UPDATE
+                case 3:
+                    break;
+            }
         }
 
         //Free requests memory
