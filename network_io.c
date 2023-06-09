@@ -106,3 +106,49 @@ request* json_to_request(const char* json) {
 
     return req;
 }
+
+void extract_local_dir_path_part(request* req, char* local_dir) {
+    // Calculate the length of the local directory
+    int local_dir_len = strlen(local_dir);
+
+    // Calculate the length of the remaining path
+    int remaining_path_len = strlen(req->file.path) - local_dir_len;
+
+    // Allocate memory for the relative path
+    char* relative_path = (char*)malloc(remaining_path_len + 1);
+
+    // Copy the remaining path to the relative path variable
+    strcpy(relative_path, req->file.path + local_dir_len);
+
+    // Update the file path in the request structure
+    strcpy(req->file.path, relative_path);
+
+    // Free the memory allocated for the relative path
+    free(relative_path);
+}
+
+void append_local_dir_path_part(request* req, char* local_dir) {
+    // Calculate the length of the local directory
+    int local_dir_len = strlen(local_dir);
+
+    // Calculate the length of the relative path
+    int relative_path_len = strlen(req->file.path);
+
+    // Calculate the total length of the updated file path
+    int updated_file_path_len = local_dir_len + relative_path_len;
+
+    // Allocate memory for the updated file path
+    char* updated_file_path = (char*)malloc(updated_file_path_len + 1);
+
+    // Copy the local directory to the updated file path
+    strcpy(updated_file_path, local_dir);
+
+    // Concatenate the relative path to the updated file path
+    strcat(updated_file_path, req->file.path);
+
+    // Update the file path in the request structure
+    strcpy(req->file.path, updated_file_path);
+
+    // Free the memory allocated for the updated file path
+    free(updated_file_path);
+}

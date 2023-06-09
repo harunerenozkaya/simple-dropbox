@@ -262,14 +262,24 @@ int main(int argc, char* argv[]) {
             char buffer[buffer_size];
             memset(buffer, 0, sizeof(buffer));
 
+            //Delete local dir part
+            extract_local_dir_path_part(&(requests[i]),dirName);
+
+            //Convert request to json
             char* request_json = request_to_json(requests[i],buffer_size);
             
+            //Copy json to buffer
             strcpy(buffer,request_json);
 
+            //Send request to server
             send(clientSocket, buffer, sizeof(buffer), 0);
 
             free(request_json);
 
+            //Re append local dir part
+            append_local_dir_path_part(&(requests[i]) , dirName);
+
+            //Handle request continue
             switch(requests[i].request_t){
                 //UPLOAD
                 case 0:
@@ -278,6 +288,7 @@ int main(int argc, char* argv[]) {
                     file = fopen(requests->file.path, "rb");
                     if (file == NULL) {
                         perror("Error opening source file");
+                        //TODO If file can not be openeed send message to server
                         continue;
                     }
 
