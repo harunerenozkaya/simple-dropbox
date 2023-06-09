@@ -18,6 +18,39 @@ typedef struct {
     file_bibak* files;
 } dir_info_bibak;
 
+
+char* read_file_data(const char* path) {
+    FILE* file = fopen(path, "rb"); // Open the file in binary mode for reading
+    if (file == NULL) {
+        perror("Error opening file");
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END); // Move the file pointer to the end of the file
+    long file_size = ftell(file); // Get the file size
+    fseek(file, 0, SEEK_SET); // Move the file pointer back to the beginning of the file
+
+    char* file_data = (char*)malloc(file_size + 1); // Allocate memory for the file data
+    if (file_data == NULL) {
+        fclose(file);
+        perror("Error allocating memory for file data");
+        return NULL;
+    }
+
+    size_t read_size = fread(file_data, 1, file_size, file); // Read the file data into the allocated memory
+    if (read_size != file_size) {
+        fclose(file);
+        free(file_data);
+        perror("Error reading file");
+        return NULL;
+    }
+
+    file_data[file_size] = '\0'; // Null-terminate the file data
+
+    fclose(file); // Close the file
+    return file_data;
+}
+
 void buffer_reallocation(char* result,int buffer_size){
     if(strlen(result) + 200 > buffer_size){
         char* temp = realloc(result, buffer_size*2);

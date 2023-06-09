@@ -43,10 +43,14 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
     new_log_dir_info->files = NULL;
 
     int isFound = 0;
+    
+    /*
+    //Print log and current dir main attributes
     printf("curr_dir_info->total_file_count : %d\n",curr_dir_info->total_file_count);
     printf("log_dir_info->total_file_count  : %d\n",log_dir_info->total_file_count );
     printf("curr_dir_info->last_modified_time  : %s\n",curr_dir_info->last_modified_time);
     printf("log_dir_info->last_modified_time  : %s\n",log_dir_info->last_modified_time);
+    */
 
     
     //Search current files in the log file
@@ -82,7 +86,7 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
             //Prepare request
             request_count += 1;
             *requests = realloc(*requests,request_count * sizeof(request));
-            create_request(&(*requests)[request_count - 1], UPDATE, curr_dir_info->files[i]);
+            create_request(&(*requests)[request_count - 1], UPLOAD, curr_dir_info->files[i]);
             
             //Add new dir_info to write the log file
             add_file_to_dir(new_log_dir_info,curr_dir_info->files[i]);
@@ -126,7 +130,7 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
         free(log_file_path);
     }
     else{
-        printf("There is no change!\n");
+        printf("There is no change!");
     }
 
     //Free new log file struct allocated memory
@@ -141,7 +145,7 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
     return request_count;
 }
 
-void control_local_changes(char* dir_name,int client_socket){
+int control_local_changes(char* dir_name,int client_socket ,request** requests){
     dir_info_bibak* curr_dir_info = malloc(sizeof(dir_info_bibak));
     curr_dir_info->total_file_count = 0;
     curr_dir_info->last_modified_time[0] = '\0';
@@ -173,27 +177,11 @@ void control_local_changes(char* dir_name,int client_socket){
     */
     
     printf("\n===============================\n");
-    request* requests = NULL;
-    int request_count = compare_log_and_current_dir(dir_name,curr_dir_info,log_dir_info,&(requests));
+    int request_count = compare_log_and_current_dir(dir_name,curr_dir_info,log_dir_info,requests);
     printf("\n===============================\n");
     
-    //Print requests
-    for(int i = 0; i < request_count; i++){
-        printf("REQUEST %d\n",i);
-        printf("request_type :  %d\n",requests[i].request_t);
-        printf("file_name : %s\n",requests[i].file.name);
-        printf("file_path : %s\n",requests[i].file.path);
-        printf("file_last_modified_time : %s\n",requests[i].file.last_modified_time);
-        printf("file_size : %d\n",requests[i].file.size);
-    }
 
     // Free allocated memory
-
-    for(int i = 0; i < request_count; i++){
-        free(requests[i].file.name);
-        free(requests[i].file.path);
-    }
-    free(requests);
 
     for (int i = 0; i < curr_dir_info->total_file_count; i++) {
         free(curr_dir_info->files[i].name);
@@ -216,6 +204,8 @@ void control_local_changes(char* dir_name,int client_socket){
     free(log_file_path);
     
     count++;
+
+    return request_count;
 }
 
 void controlRemoteChanges(char* dirName,int clientSocket){
@@ -260,7 +250,38 @@ int main(int argc, char* argv[]) {
 
     //Start main loop
     while(1){
-        control_local_changes(dirName,clientSocket);
+        request* requests = NULL;
+        int request_count = control_local_changes(dirName,clientSocket,&(requests));
+
+        //Send to server
+        for(int i = 0; i < request_count; i++){
+            int buffer_size = 1000;
+            char buffer[buffer_size];
+            memset(buffer, 0, sizeof(buffer));
+
+            char* request_json = request_to_json(requests[i],buffer_size);
+            
+            strcpy(buffer,request_json);
+
+            send(clientSocket, buffer, sizeof(buffer), 0);
+            
+            free(request_json);
+        }
+
+        //Free requests memory
+        for(int i = 0; i < request_count; i++){
+            free(requests[i].file.name);
+            free(requests[i].file.path);
+        }
+        free(requests);
+
+
+
+
+
+
+
+
         controlRemoteChanges(dirName,clientSocket);
         sleep(3);
     }

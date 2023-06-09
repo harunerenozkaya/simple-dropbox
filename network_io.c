@@ -35,3 +35,40 @@ int create_request(request* req,request_type request_t, file_bibak file) {
 
     return 0;
 }
+
+char* request_to_json(const request req ,int buffer_size) {
+    char* json = malloc(sizeof(char)*buffer_size);
+
+    sprintf(json, "{\"request_type\": %d, \"file_name\": \"%s\", \"file_last_modified_time\": \"%s\", \"file_size\": %d, \"file_path\": \"%s\"}",
+            req.request_t, req.file.name, req.file.last_modified_time ,req.file.size, req.file.path);
+    
+    return json;
+}
+
+request* json_to_request(const char* json) {
+    request* req = malloc(sizeof(request));
+
+    int request_t;
+    int file_size = 0;
+    char request_type_str[10];
+    char file_name[100];
+    char file_last_modified_time[20];
+    char file_size_str[10];
+    char file_path[100];
+
+    sscanf(json, "{\"request_type\": %d, \"file_name\": \"%[^\"]\", \"file_last_modified_time\": \"%[^\"]\", \"file_size\": %d, \"file_path\": \"%[^\"]\"}",
+           &request_t, file_name, file_last_modified_time, &file_size, file_path);
+
+    req->request_t = (request_type) request_t;
+
+    req->file.name = malloc(strlen(file_name) + 1);
+    strcpy(req->file.name,file_name);
+    
+    strncpy(req->file.last_modified_time,file_last_modified_time,sizeof(req->file.last_modified_time));
+    req->file.size = file_size;
+
+    req->file.path = malloc(strlen(file_path) + 1);
+    strcpy(req->file.path,file_path);
+
+    return req;
+}
