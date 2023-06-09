@@ -43,17 +43,21 @@ void *handle_client(void *arg) {
         printf("file_path: %s\n",req->file.path);
         printf("\n===============================\n");
 
+        int bytesRead = 0;
+        int writedByte = 0;
+        int file_data_length = 0;
+
         switch(req->request_t){
             //UPLOAD
             case 0:
                 memset(buffer, 0, sizeof(buffer));
                 read(client_socket, buffer, sizeof(buffer));
-                int file_data_length = buffer[0];
+                file_data_length = buffer[0];
 
                 printf("size:%d\n",file_data_length);
                                 
-                int bytesRead = 0;
-                int writedByte = 0;
+                bytesRead = 0;
+                writedByte = 0;
                 while (writedByte < file_data_length && (bytesRead = read(client_socket, buffer, sizeof(buffer))) > 0) {
                     // Process the received data
                     writedByte += bytesRead;
@@ -69,6 +73,19 @@ void *handle_client(void *arg) {
                 break;
             //UPDATE
             case 3:
+                memset(buffer, 0, sizeof(buffer));
+                read(client_socket, buffer, sizeof(buffer));
+                file_data_length = buffer[0];
+
+                printf("size:%d\n",file_data_length);
+                                
+                bytesRead = 0;
+                writedByte = 0;
+                while (writedByte < file_data_length && (bytesRead = read(client_socket, buffer, sizeof(buffer))) > 0) {
+                    // Process the received data
+                    writedByte += bytesRead;
+                    printf("Buffer:%s\n",buffer);
+                }
                 break;
         }
 

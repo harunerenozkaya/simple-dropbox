@@ -252,6 +252,9 @@ int main(int argc, char* argv[]) {
     while(1){
         request* requests = NULL;
         int request_count = control_local_changes(dirName,clientSocket,&(requests));
+        int bytesRead = 0;
+        long file_size = 0;
+        FILE *file;
 
         //Send to server
         for(int i = 0; i < request_count; i++){
@@ -272,14 +275,14 @@ int main(int argc, char* argv[]) {
                 case 0:
                     memset(buffer, 0, sizeof(buffer));
                     
-                    FILE *file = fopen(requests->file.path, "rb");
+                    file = fopen(requests->file.path, "rb");
                     if (file == NULL) {
                         perror("Error opening source file");
                         continue;
                     }
 
                     fseek(file, 0, SEEK_END); // Move the file pointer to the end of the file
-                    long file_size = ftell(file); // Get the file size
+                    file_size = ftell(file); // Get the file size
                     fseek(file, 0, SEEK_SET); // Move the file pointer back to the beginning of the file
 
 
@@ -290,8 +293,9 @@ int main(int argc, char* argv[]) {
                     //Read the file and senf to the server by writing data to buffer
                     memset(buffer,'\0',sizeof(buffer));
 
+                    bytesRead = 0;
                     //If there is content in the file
-                    while ((int bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file)) > 0) {
+                    while ((bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file)) > 0) {
                         int n = write(clientSocket, buffer, bytesRead);
                         if (n < 0) {
                             perror("Error writing to socket");
@@ -310,6 +314,37 @@ int main(int argc, char* argv[]) {
                     break;
                 //UPDATE
                 case 3:
+                    memset(buffer, 0, sizeof(buffer));
+                    
+                    file = fopen(requests->file.path, "rb");
+                    if (file == NULL) {
+                        perror("Error opening source file");
+                        continue;
+                    }
+
+                    fseek(file, 0, SEEK_END); // Move the file pointer to the end of the file
+                    file_size = ftell(file); // Get the file size
+                    fseek(file, 0, SEEK_SET); // Move the file pointer back to the beginning of the file
+
+
+                    //Send the file content data size to server
+                    buffer[0] = file_size;
+                    send(clientSocket,buffer,sizeof(buffer), 0);
+
+                    //Read the file and senf to the server by writing data to buffer
+                    memset(buffer,'\0',sizeof(buffer));
+
+                    bytesRead = 0;
+                    //If there is content in the file
+                    while ((bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file)) > 0) {
+                        int n = write(clientSocket, buffer, bytesRead);
+                        if (n < 0) {
+                            perror("Error writing to socket");
+                        }
+                    }
+                    
+                    //Close the file
+                    fclose(file);
                     break;
             }
         }
