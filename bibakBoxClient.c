@@ -284,38 +284,20 @@ int main(int argc, char* argv[]) {
                 //UPLOAD
                 case 0:
                     memset(buffer, 0, sizeof(buffer));
-                    
-                    file = fopen(requests->file.path, "rb");
-                    if (file == NULL) {
-                        perror("Error opening source file");
-                        //TODO If file can not be openeed send message to server
-                        continue;
-                    }
 
-                    fseek(file, 0, SEEK_END); // Move the file pointer to the end of the file
-                    file_size = ftell(file); // Get the file size
-                    fseek(file, 0, SEEK_SET); // Move the file pointer back to the beginning of the file
-
-
-                    //Send the file content data size to server
-                    buffer[0] = file_size;
-                    send(clientSocket,buffer,sizeof(buffer), 0);
-
-                    //Read the file and senf to the server by writing data to buffer
-                    memset(buffer,'\0',sizeof(buffer));
+                    //TODO control if the file is null and notify server
+                    file = fopen(requests[i].file.path,"rb");
 
                     bytesRead = 0;
                     //If there is content in the file
-                    while ((bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file)) > 0) {
-                        int n = write(clientSocket, buffer, bytesRead);
-                        if (n < 0) {
-                            perror("Error writing to socket");
-                        }
+                    while ((bytesRead = fread(buffer, 1 , sizeof(buffer) , file)) > 0) {
+                        send(clientSocket, buffer, bytesRead, 0);
                     }
                     
                     //Close the file
                     fclose(file);
-
+                    
+                    //Get response
                     read(clientSocket,buffer,sizeof(buffer));
                     printf("\nresponse : %s\n",buffer);
 
@@ -329,24 +311,9 @@ int main(int argc, char* argv[]) {
                 //UPDATE
                 case 3:
                     memset(buffer, 0, sizeof(buffer));
-                    
-                    file = fopen(requests->file.path, "rb");
-                    if (file == NULL) {
-                        perror("Error opening source file");
-                        continue;
-                    }
 
-                    fseek(file, 0, SEEK_END); // Move the file pointer to the end of the file
-                    file_size = ftell(file); // Get the file size
-                    fseek(file, 0, SEEK_SET); // Move the file pointer back to the beginning of the file
-
-
-                    //Send the file content data size to server
-                    buffer[0] = file_size;
-                    send(clientSocket,buffer,sizeof(buffer), 0);
-
-                    //Read the file and senf to the server by writing data to buffer
-                    memset(buffer,'\0',sizeof(buffer));
+                    //TODO control if the file is null and notify server
+                    file = fopen(requests[i].file.path,"rb");
 
                     bytesRead = 0;
                     //If there is content in the file
@@ -359,7 +326,8 @@ int main(int argc, char* argv[]) {
                     
                     //Close the file
                     fclose(file);
-
+                    
+                    //Get response
                     read(clientSocket,buffer,sizeof(buffer));
                     printf("\nresponse : %s\n",buffer);
 

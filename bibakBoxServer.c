@@ -48,7 +48,7 @@ FILE* upload_file(file_bibak file) {
     }
 
     // Check if the file already exists
-    FILE* existing_file = fopen(file_path, "r");
+    FILE* existing_file = fopen(file_path, "rb");
     if (existing_file != NULL) {
         fclose(existing_file);
         free(file_path);
@@ -56,7 +56,7 @@ FILE* upload_file(file_bibak file) {
     }
 
     // Create the new file
-    FILE* new_file = fopen(file_path, "w");
+    FILE* new_file = fopen(file_path, "wb");
     if (new_file == NULL) {
         free(file_path);
         return NULL; // Error creating the file, return NULL as an error indicator
@@ -75,7 +75,7 @@ FILE* update_file(file_bibak file) {
     snprintf(result_path, total_length, "%s%s", directory, file.path);
 
     // Check if the file isn't exist
-    FILE* file_t = fopen(result_path, "r");
+    FILE* file_t = fopen(result_path, "rb");
     if (file_t == NULL) {
         free(result_path);
         return NULL; // File with the same name doesn't exists, return NULL as an error indicator
@@ -83,7 +83,7 @@ FILE* update_file(file_bibak file) {
     fclose(file_t);
 
     // Truncate the file and write
-    FILE* new_file = fopen(result_path, "w");
+    FILE* new_file = fopen(result_path, "wb");
     if (new_file == NULL) {
         free(result_path);
         return NULL; // Error creating the file, return NULL as an error indicator
@@ -112,8 +112,13 @@ void *handle_client(void *arg) {
             perror("Error reading from socket");
             exit(1);
         }
-
+        
         request* req = json_to_request(buffer);
+
+        if(req->request_t > 3 || req->request_t < 0){
+            printf("Client is exited\n");
+            break;
+        }
 
         printf("\n===============================\n");
         printf("======= Request Received ======");
@@ -143,26 +148,28 @@ void *handle_client(void *arg) {
             case 0:
                 //Get File size
                 memset(buffer, 0, sizeof(buffer));
-                read(client_socket, buffer, sizeof(buffer));
-                file_data_length = buffer[0];
+                file_data_length = req->file.size;
 
                 //printf("size:%d\n",file_data_length);
 
                 //Control if the file is uploadable
                 file_descriptor = upload_file(req->file);
-                
+
                 //Get the file content         
                 bytesRead = 0;
                 writedByte = 0;
-                while (writedByte < file_data_length && (bytesRead = read(client_socket, buffer, sizeof(buffer))) > 0) {
+                while (writedByte < file_data_length && (bytesRead = recv(client_socket, buffer, sizeof(buffer) , 0)) > 0) {
                     //Write if the file is uploadable
+
                     writedByte += bytesRead;
 
                     if(file_descriptor != NULL){
-                        fwrite(buffer,1,strlen(buffer),file_descriptor);
-                        
+                        fwrite(buffer,bytesRead,1,file_descriptor);
                     }
                 }
+
+                
+                //printf("bytesWritten : %d\n",writedByte);
 
                 if(file_descriptor == NULL){
                     res->response_t = ERROR;
@@ -182,7 +189,7 @@ void *handle_client(void *arg) {
                 if(file_descriptor != NULL){
                     fclose(file_descriptor);
                 }
-
+ 
                 //printf("Response gönderildi\n");
                 break;
             //DOWNLOAD
@@ -195,8 +202,7 @@ void *handle_client(void *arg) {
             case 3:
                 //Get File size
                 memset(buffer, 0, sizeof(buffer));
-                read(client_socket, buffer, sizeof(buffer));
-                file_data_length = buffer[0];
+                file_data_length = req->file.size;
 
                 //printf("size:%d\n",file_data_length);
 
@@ -206,12 +212,12 @@ void *handle_client(void *arg) {
                 //Get the file content         
                 bytesRead = 0;
                 writedByte = 0;
-                while (writedByte < file_data_length && (bytesRead = read(client_socket, buffer, sizeof(buffer))) > 0) {
+                while (writedByte < file_data_length && (bytesRead = recv(client_socket, buffer, sizeof(buffer),0)) > 0) {
                     //Write if the file is uploadable
                     writedByte += bytesRead;
 
                     if(file_descriptor != NULL){
-                        fwrite(buffer,1,strlen(buffer),file_descriptor);
+                        fwrite(buffer,bytesRead,1,file_descriptor);
                     }
                 }
 
