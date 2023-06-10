@@ -317,7 +317,7 @@ int main(int argc, char* argv[]) {
                     fclose(file);
 
                     read(clientSocket,buffer,sizeof(buffer));
-                    printf("\nbuffer : %s\n",buffer);
+                    printf("\nresponse : %s\n",buffer);
 
                     break;
                 //DOWNLOAD
@@ -359,6 +359,10 @@ int main(int argc, char* argv[]) {
                     
                     //Close the file
                     fclose(file);
+
+                    read(clientSocket,buffer,sizeof(buffer));
+                    printf("\nresponse : %s\n",buffer);
+
                     break;
             }
         }

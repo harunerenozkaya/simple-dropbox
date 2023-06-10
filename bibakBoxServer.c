@@ -74,14 +74,13 @@ FILE* update_file(file_bibak file) {
     char* result_path = (char*)malloc(total_length * sizeof(char));
     snprintf(result_path, total_length, "%s%s", directory, file.path);
 
-    // Check if the file already exists
-    FILE* existing_file = fopen(result_path, "r");
-    if (existing_file == NULL) {
-        fclose(existing_file);
+    // Check if the file isn't exist
+    FILE* file_t = fopen(result_path, "r");
+    if (file_t == NULL) {
         free(result_path);
         return NULL; // File with the same name doesn't exists, return NULL as an error indicator
     }
-    fclose(existing_file);
+    fclose(file_t);
 
     // Truncate the file and write
     FILE* new_file = fopen(result_path, "w");
@@ -137,7 +136,7 @@ void *handle_client(void *arg) {
         res->file.size = 0;
 
         FILE* file_descriptor;
-        char* json;
+        char* json = NULL;
 
         switch(req->request_t){
             //UPLOAD
@@ -151,7 +150,7 @@ void *handle_client(void *arg) {
 
                 //Control if the file is uploadable
                 file_descriptor = upload_file(req->file);
-
+                
                 //Get the file content         
                 bytesRead = 0;
                 writedByte = 0;
@@ -180,8 +179,9 @@ void *handle_client(void *arg) {
                     perror("ERROR : Response can not be sent to the server!\n");
                 }
 
-                fclose(file_descriptor);
-                free(json);
+                if(file_descriptor != NULL){
+                    fclose(file_descriptor);
+                }
 
                 //printf("Response gönderildi\n");
                 break;
@@ -230,13 +230,16 @@ void *handle_client(void *arg) {
                     perror("ERROR : Response can not be sent to the server!\n");
                 }
 
-                fclose(file_descriptor);
-                free(json);
+                //Close file descriptor
+                if(file_descriptor != NULL){
+                    fclose(file_descriptor);
+                }
 
                 //printf("Response gönderildi\n");
                 break;
         }
 
+        free(json);
         free(req->file.name);
         free(req->file.path);
         free(req);
