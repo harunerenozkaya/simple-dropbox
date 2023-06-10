@@ -5,8 +5,10 @@
 #include <netinet/in.h>
 #include <unistd.h>
 #include "network_io.c"
+#include <arpa/inet.h>
 
 #define BUFFER_SIZE 1024
+#define SERVER_IP_ADRESS "192.168.1.115"
 int count = 0;
 
 void initialize_log_file(char* dir_name){
@@ -235,7 +237,7 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(portNumber);
-    serverAddress.sin_addr.s_addr = INADDR_ANY;
+    serverAddress.sin_addr.s_addr = inet_addr(SERVER_IP_ADRESS);
 
     // Connect to the server
     if (connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {

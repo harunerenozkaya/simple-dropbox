@@ -7,6 +7,7 @@
 #include <dirent.h>
 #include <pthread.h>
 #include "network_io.c"
+#include <arpa/inet.h>
 
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 10
@@ -287,9 +288,10 @@ int main(int argc, char* argv[]) {
 
     // Set up server address
     struct sockaddr_in serverAddress;
+    memset(&serverAddress,0,sizeof(serverAddress));
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(portNumber);
-    serverAddress.sin_addr.s_addr = INADDR_ANY;
+    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
 
     // Bind the socket to the server address
     if (bind(server_socket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
