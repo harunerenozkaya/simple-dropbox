@@ -11,6 +11,89 @@
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 10
 
+const char* directory;
+
+FILE* upload_file(file_bibak file) {
+    // Concatenate the directory and file path
+    int total_length = strlen(directory) + strlen(file.path) + 1; // +1 for '/', +1 for '\0'
+    char* file_path = (char*)malloc(total_length * sizeof(char));
+    snprintf(file_path, total_length, "%s%s", directory, file.path);
+
+    // Create a copy of the file path
+    char* path_copy = strdup(file_path);
+
+    // Find the last occurrence of '/' in the file path
+    char* last_slash = strrchr(path_copy, '/');
+    if (last_slash == NULL) {
+        printf("Invalid file path: %s\n", file_path);
+        free(path_copy);
+        return NULL;
+    }
+
+    // Extract the directory path and file name
+    *last_slash = '\0';  // Null-terminate the directory path
+    const char* directory_path = path_copy;
+    const char* file_name = last_slash + 1;
+
+    // Create the directories if they don't exist
+    struct stat st;
+    if (stat(directory_path, &st) != 0) {
+        // Directory does not exist, create it
+        int result = mkdir(directory_path, 0777);
+        if (result != 0) {
+            printf("Error creating directory: %s\n", directory_path);
+            free(path_copy);
+            return NULL;
+        }
+    }
+
+    // Check if the file already exists
+    FILE* existing_file = fopen(file_path, "r");
+    if (existing_file != NULL) {
+        fclose(existing_file);
+        free(file_path);
+        return NULL; // File with the same name already exists, return NULL as an error indicator
+    }
+
+    // Create the new file
+    FILE* new_file = fopen(file_path, "w");
+    if (new_file == NULL) {
+        free(file_path);
+        return NULL; // Error creating the file, return NULL as an error indicator
+    }
+
+    //printf("File created successfully: %s\n", file_path);
+    return new_file;
+}
+
+
+FILE* update_file(file_bibak file) {
+    
+    // Concatenate the directory and file path
+    int total_length = strlen(directory) + strlen(file.path) + 1; // +1 for '/', +1 for '\0'
+    char* result_path = (char*)malloc(total_length * sizeof(char));
+    snprintf(result_path, total_length, "%s%s", directory, file.path);
+
+    // Check if the file already exists
+    FILE* existing_file = fopen(result_path, "r");
+    if (existing_file == NULL) {
+        fclose(existing_file);
+        free(result_path);
+        return NULL; // File with the same name doesn't exists, return NULL as an error indicator
+    }
+    fclose(existing_file);
+
+    // Truncate the file and write
+    FILE* new_file = fopen(result_path, "w");
+    if (new_file == NULL) {
+        free(result_path);
+        return NULL; // Error creating the file, return NULL as an error indicator
+    }
+
+    free(result_path);
+    return new_file;
+}
+
 void *handle_client(void *arg) {
     int server_socket = *(int *)arg;
 
@@ -47,23 +130,60 @@ void *handle_client(void *arg) {
         int writedByte = 0;
         int file_data_length = 0;
 
+        response* res = malloc(sizeof(response));
+        res->response_t = DONE;
+        res->file.name = NULL;
+        res->file.path = NULL;
+        res->file.size = 0;
+
+        FILE* file_descriptor;
+        char* json;
+
         switch(req->request_t){
             //UPLOAD
             case 0:
+                //Get File size
                 memset(buffer, 0, sizeof(buffer));
                 read(client_socket, buffer, sizeof(buffer));
                 file_data_length = buffer[0];
 
-                printf("size:%d\n",file_data_length);
-                                
+                //printf("size:%d\n",file_data_length);
+
+                //Control if the file is uploadable
+                file_descriptor = upload_file(req->file);
+
+                //Get the file content         
                 bytesRead = 0;
                 writedByte = 0;
                 while (writedByte < file_data_length && (bytesRead = read(client_socket, buffer, sizeof(buffer))) > 0) {
-                    // Process the received data
+                    //Write if the file is uploadable
                     writedByte += bytesRead;
-                    printf("Buffer:%s\n",buffer);
+
+                    if(file_descriptor != NULL){
+                        fwrite(buffer,1,strlen(buffer),file_descriptor);
+                        
+                    }
                 }
 
+                if(file_descriptor == NULL){
+                    res->response_t = ERROR;
+                }
+
+                //TODO change last modified time
+
+                //Prepare the response
+                json = response_to_json(res,sizeof(buffer));
+
+                //Send the response
+                strcpy(buffer,json);
+                if(write(client_socket,buffer,sizeof(buffer)) < 0){
+                    perror("ERROR : Response can not be sent to the server!\n");
+                }
+
+                fclose(file_descriptor);
+                free(json);
+
+                //printf("Response gönderildi\n");
                 break;
             //DOWNLOAD
             case 1:
@@ -73,34 +193,56 @@ void *handle_client(void *arg) {
                 break;
             //UPDATE
             case 3:
+                //Get File size
                 memset(buffer, 0, sizeof(buffer));
                 read(client_socket, buffer, sizeof(buffer));
                 file_data_length = buffer[0];
 
-                printf("size:%d\n",file_data_length);
-                                
+                //printf("size:%d\n",file_data_length);
+
+                //Control if the file is uploadable
+                file_descriptor = update_file(req->file);
+
+                //Get the file content         
                 bytesRead = 0;
                 writedByte = 0;
                 while (writedByte < file_data_length && (bytesRead = read(client_socket, buffer, sizeof(buffer))) > 0) {
-                    // Process the received data
+                    //Write if the file is uploadable
                     writedByte += bytesRead;
-                    printf("Buffer:%s\n",buffer);
+
+                    if(file_descriptor != NULL){
+                        fwrite(buffer,1,strlen(buffer),file_descriptor);
+                    }
                 }
+
+                if(file_descriptor == NULL){
+                    res->response_t = ERROR;
+                }
+
+                //TODO change last modified time
+
+                //Prepare the response
+                char* json = response_to_json(res,sizeof(buffer));
+        
+                //Send the response
+                strcpy(buffer,json);
+                if(write(client_socket,buffer,sizeof(buffer)) < 0){
+                    perror("ERROR : Response can not be sent to the server!\n");
+                }
+
+                fclose(file_descriptor);
+                free(json);
+
+                //printf("Response gönderildi\n");
                 break;
-        }
-
-
-
-        // Process the data (echo back in this case)
-        //printf("\nReceived from client: %s\n", buffer);
-        if (write(client_socket, buffer, n) < 0) {
-            perror("Error writing to socket");
-            exit(1);
         }
 
         free(req->file.name);
         free(req->file.path);
         free(req);
+        free(res->file.name);
+        free(res->file.path);
+        free(res);
     }
 
     close(client_socket);
@@ -115,7 +257,7 @@ int main(int argc, char* argv[]) {
     }
 
     // Extract arguments
-    const char* directory = argv[1];
+    directory = argv[1];
     int thread_pool_size = atoi(argv[2]);
     int portNumber = atoi(argv[3]);
 

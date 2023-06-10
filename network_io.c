@@ -83,10 +83,10 @@ request* json_to_request(const char* json) {
     request* req = malloc(sizeof(request));
 
     int request_t;
-    int file_size = 0;
     char request_type_str[10];
     char file_name[100];
     char file_last_modified_time[20];
+    int file_size = 0;
     char file_size_str[10];
     char file_path[100];
 
@@ -105,6 +105,44 @@ request* json_to_request(const char* json) {
     strcpy(req->file.path,file_path);
 
     return req;
+}
+
+char* response_to_json (const response* resp, int buffer_size) {
+    char* json = malloc(sizeof(char)*buffer_size);
+
+    snprintf(json, buffer_size, "{\"response_t\":\"%d\",\"file\":{\"name\":\"%s\",\"last_modified_time\":\"%s\",\"size\":%d,\"path\":\"%s\"}}",
+            resp->response_t, resp->file.name, resp->file.last_modified_time, resp->file.size, resp->file.path);
+
+    return json;
+}
+
+response* json_to_response(const char* json) {
+    response* resp = malloc(sizeof(response));
+
+    int response_t;
+    char response_type_str[10];
+    char file_name[100];
+    char file_last_modified_time[20];
+    int file_size = 0;
+    char file_size_str[10];
+    char file_path[100];
+
+    sscanf(json, "{\"response_t\": %d, \"file\": {\"name\": \"%[^\"]\", \"last_modified_time\": \"%[^\"]\", \"size\": %d, \"path\": \"%[^\"]\"}}",
+           &response_t, file_name, file_last_modified_time, &file_size, file_path);
+
+    resp->response_t = (response_status)response_t;
+
+    resp->file.name = malloc(strlen(file_name) + 1);
+    strcpy(resp->file.name, file_name);
+
+    strncpy(resp->file.last_modified_time, file_last_modified_time, sizeof(resp->file.last_modified_time));
+    
+    resp->file.size = file_size;
+
+    resp->file.path = malloc(strlen(file_path) + 1);
+    strcpy(resp->file.path, file_path);
+
+    return resp;
 }
 
 void extract_local_dir_path_part(request* req, char* local_dir) {

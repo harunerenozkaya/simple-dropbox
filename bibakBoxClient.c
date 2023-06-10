@@ -316,6 +316,9 @@ int main(int argc, char* argv[]) {
                     //Close the file
                     fclose(file);
 
+                    read(clientSocket,buffer,sizeof(buffer));
+                    printf("\nbuffer : %s\n",buffer);
+
                     break;
                 //DOWNLOAD
                 case 1:
