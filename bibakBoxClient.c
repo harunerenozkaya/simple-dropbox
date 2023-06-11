@@ -210,8 +210,144 @@ int control_local_changes(char* dir_name,int client_socket ,request** requests){
     return request_count;
 }
 
-void controlRemoteChanges(char* dirName,int clientSocket){
+void send_local_change_requests(int clientSocket, request* requests, int request_count, char* dirName) {
+    for (int i = 0; i < request_count; i++) {
+        char buffer[BUFFER_SIZE];
+        memset(buffer, 0, sizeof(buffer));
 
+        extract_local_dir_path_part(&(requests[i]), dirName);
+
+        char* request_json = request_to_json(requests[i], BUFFER_SIZE);
+        strcpy(buffer, request_json);
+        free(request_json);
+
+        send(clientSocket, buffer, sizeof(buffer), 0);
+
+        append_local_dir_path_part(&(requests[i]), dirName);
+
+        switch (requests[i].request_t) {
+            case 0: { // UPLOAD
+                memset(buffer, 0, sizeof(buffer));
+                FILE* file = fopen(requests[i].file.path, "rb");
+
+                size_t bytesRead = 0;
+                while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+                    send(clientSocket, buffer, bytesRead, 0);
+                }
+
+                fclose(file);
+
+                read(clientSocket, buffer, sizeof(buffer));
+                printf("\nresponse: %s\n", buffer);
+                break;
+            }
+            case 1: // DOWNLOAD
+                // TODO: Implement download logic
+                break;
+            case 2: { // DELETE
+                memset(buffer, 0, sizeof(buffer));
+                read(clientSocket, buffer, sizeof(buffer));
+                printf("\nresponse: %s\n", buffer);
+                break;
+            }
+            case 3: { // UPDATE
+                memset(buffer, 0, sizeof(buffer));
+                FILE* file = fopen(requests[i].file.path, "rb");
+
+                size_t bytesRead = 0;
+                while ((bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file)) > 0) {
+                    int n = write(clientSocket, buffer, bytesRead);
+                    if (n < 0) {
+                        perror("Error writing to socket");
+                    }
+                }
+
+                fclose(file);
+
+                read(clientSocket, buffer, sizeof(buffer));
+                printf("\nresponse: %s\n", buffer);
+                break;
+            }
+        }
+
+        memset(buffer, '\0', sizeof(buffer));
+    }
+
+}
+
+void control_remote_changes(char* dirName,int clientSocket){
+
+    //Create buffer
+    char buffer[BUFFER_SIZE];
+    memset(buffer, 0, sizeof(buffer));
+
+    //Create log request
+    request req;
+    req.request_t = LOG;
+    req.file.name = NULL;
+    req.file.size = 0;
+    req.file.path = NULL;
+
+    //Create request json
+    char* request_json = request_to_json(req, BUFFER_SIZE);
+    strcpy(buffer, request_json);
+    free(request_json);
+
+    //Send request to server
+    send(clientSocket, buffer, sizeof(buffer), 0);
+    memset(buffer, '\0', sizeof(buffer));
+
+    //Get log file length
+    int server_log_size = 0;
+    recv(clientSocket, buffer, sizeof(buffer), 0);
+    server_log_size = atoi(buffer);
+
+    printf("Log file length :%d\n",server_log_size);
+
+
+    char* server_log = malloc((server_log_size + 1) * sizeof(char));
+    memset(server_log , '\0' , sizeof(server_log));
+
+    memset(buffer, '\0', sizeof(buffer));
+   
+
+    
+     int okunacak = 0;
+    int bytesRead = 0;
+    size_t start = 0;
+
+    if(server_log_size - start < sizeof(buffer)){
+        okunacak = server_log_size - start;
+    }
+    else{
+        okunacak = sizeof(buffer);
+    }
+
+    while (start < server_log_size && (bytesRead = recv(clientSocket, buffer, okunacak ,0)) > 0) {
+        strncpy(server_log + start ,buffer, bytesRead);
+        memset(buffer, '\0', sizeof(buffer));
+    
+        start += bytesRead;
+
+    
+        if(server_log_size - start < sizeof(buffer)){
+            okunacak = server_log_size - start;
+        }
+        else{
+            okunacak = sizeof(buffer);
+        }
+
+        printf("\nserverlog : %s\n",server_log);
+
+    }
+
+    //Get response
+    memset(buffer, 0, sizeof(buffer));
+    recv(clientSocket, buffer, sizeof(buffer), 0);
+    printf("\nresponse : %s\n",buffer);
+
+    //free(req);
+    free(server_log);
 }
 
 int main(int argc, char* argv[]) {
@@ -254,113 +390,18 @@ int main(int argc, char* argv[]) {
     while(1){
         request* requests = NULL;
         int request_count = control_local_changes(dirName,clientSocket,&(requests));
-        int bytesRead = 0;
-        long file_size = 0;
-        FILE *file;
 
-        //Send to server
-        for(int i = 0; i < request_count; i++){
-            int buffer_size = 1024;
-            char buffer[buffer_size];
-            memset(buffer, 0, sizeof(buffer));
+        send_local_change_requests(clientSocket,requests,request_count,dirName);
 
-            //Delete local dir part
-            extract_local_dir_path_part(&(requests[i]),dirName);
-
-            //Convert request to json
-            char* request_json = request_to_json(requests[i],buffer_size);
-            
-            memset(buffer, '\0', sizeof(buffer));
-
-            //Copy json to buffer
-            strcpy(buffer,request_json);
-
-            //Send request to server
-            send(clientSocket, buffer, sizeof(buffer), 0);
-
-            free(request_json);
-
-            //Re append local dir part
-            append_local_dir_path_part(&(requests[i]) , dirName);
-
-            //Handle request continue
-            switch(requests[i].request_t){
-                //UPLOAD
-                case 0:
-                    memset(buffer, 0, sizeof(buffer));
-
-                    //TODO control if the file is null and notify server
-                    file = fopen(requests[i].file.path,"rb");
-
-                    bytesRead = 0;
-                    //If there is content in the file
-                    while ((bytesRead = fread(buffer, 1 , sizeof(buffer) , file)) > 0) {
-                        send(clientSocket, buffer, bytesRead, 0);
-                    }
-                    
-                    //Close the file
-                    fclose(file);
-                    
-                    //Get response
-                    read(clientSocket,buffer,sizeof(buffer));
-                    printf("\nresponse : %s\n",buffer);
-
-                    break;
-                //DOWNLOAD
-                case 1:
-                    break;
-                //DELETE
-                case 2:
-                    memset(buffer, 0, sizeof(buffer));
-                    //Get response
-                    read(clientSocket,buffer,sizeof(buffer));
-                    printf("\nresponse : %s\n",buffer);
-                    break;
-                //UPDATE
-                case 3:
-                    memset(buffer, 0, sizeof(buffer));
-
-                    //TODO control if the file is null and notify server
-                    file = fopen(requests[i].file.path,"rb");
-
-                    bytesRead = 0;
-                    //If there is content in the file
-                    while ((bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file)) > 0) {
-                        int n = write(clientSocket, buffer, bytesRead);
-                        if (n < 0) {
-                            perror("Error writing to socket");
-                        }
-                    }
-                    
-                    //Close the file
-                    fclose(file);
-                    
-                    //Get response
-                    read(clientSocket,buffer,sizeof(buffer));
-                    printf("\nresponse : %s\n",buffer);
-
-                    break;
-            }
-
-            memset(buffer, '\0', sizeof(buffer));
-        }
-
-        //Free requests memory
-        for(int i = 0; i < request_count; i++){
+        // Free requests memory
+        for (int i = 0; i < request_count; i++) {
             free(requests[i].file.name);
             free(requests[i].file.path);
         }
         free(requests);
 
-
-
-
-
-
-
-
-        controlRemoteChanges(dirName,clientSocket);
-        sleep(3);
+        control_remote_changes(dirName,clientSocket);
+    
     }
 
     // Close the client socket

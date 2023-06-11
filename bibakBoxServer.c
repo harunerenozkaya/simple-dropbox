@@ -67,7 +67,6 @@ FILE* upload_file(file_bibak file) {
     return new_file;
 }
 
-
 FILE* update_file(file_bibak file) {
     
     // Concatenate the directory and file path
@@ -137,9 +136,10 @@ void *handle_client(void *arg) {
             exit(1);
         }
         
+        //Convert json to request structure
         request* req = json_to_request(buffer);
 
-
+        //Print request details
         printf("\n===============================\n");
         printf("======= Request Received ======");
         printf("\n===============================\n\n");
@@ -150,6 +150,7 @@ void *handle_client(void *arg) {
         printf("file_path: %s\n",req->file.path);
         printf("\n===============================\n");
 
+        //Initialize request handling variables
         int bytesRead = 0;
         int writedByte = 0;
         int file_data_length = 0;
@@ -259,10 +260,56 @@ void *handle_client(void *arg) {
                 }
 
                 break;
+
+            //LOG
+            case 4:
+                dir_info_bibak* curr_dir_info = malloc(sizeof(dir_info_bibak));
+                curr_dir_info->total_file_count = 0;
+                curr_dir_info->last_modified_time[0] = '\0';
+                curr_dir_info->files = NULL;
+                search_dir(directory,curr_dir_info);
+
+                char* str = generate_dir_info_str(curr_dir_info);
+                int length = strlen(str);
+
+                //Send to client the log file length
+                memset(buffer, '\0', sizeof(buffer));
+                sprintf(buffer,"%d",length);
+                send(client_socket,buffer,sizeof(buffer),0);
+
+                // Send server current structure
+                size_t start = 0;
+                while (start < length) {
+                    memset(buffer, '\0', sizeof(buffer));
+                    size_t chunk_size = (length - start < sizeof(buffer)) ? length - start : sizeof(buffer);
+                    strncpy(buffer, str + start, chunk_size);
+
+                    if(write(client_socket,buffer,chunk_size) < 0){
+                        perror("ERROR : Response can not be sent to the server!\n");
+                    }
+
+                    start += chunk_size;
+                }
+                
+                //Free allocated memories
+
+                free(str);
+                
+                for (int i = 0; i < curr_dir_info->total_file_count; i++) {
+                    free(curr_dir_info->files[i].name);
+                    free(curr_dir_info->files[i].path);
+                }
+                
+                if(curr_dir_info->total_file_count > 0)
+                    free(curr_dir_info->files);
+
+                free(curr_dir_info);
+                break;
+
         }
 
         memset(buffer, 0, sizeof(buffer));
-
+    
         //Prepare the response
         json = response_to_json(res,sizeof(buffer));
 
