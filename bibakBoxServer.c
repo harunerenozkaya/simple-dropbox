@@ -16,7 +16,7 @@ const char* directory;
 
 FILE* upload_file(file_bibak file) {
     // Concatenate the directory and file path
-    int total_length = strlen(directory) + strlen(file.path) + 1; // +1 for '/', +1 for '\0'
+    int total_length = strlen(directory) + strlen(file.path) + 1;
     char* file_path = (char*)malloc(total_length * sizeof(char));
     snprintf(file_path, total_length, "%s%s", directory, file.path);
 
@@ -71,7 +71,7 @@ FILE* upload_file(file_bibak file) {
 FILE* update_file(file_bibak file) {
     
     // Concatenate the directory and file path
-    int total_length = strlen(directory) + strlen(file.path) + 1; // +1 for '/', +1 for '\0'
+    int total_length = strlen(directory) + strlen(file.path) + 1;
     char* result_path = (char*)malloc(total_length * sizeof(char));
     snprintf(result_path, total_length, "%s%s", directory, file.path);
 
@@ -94,6 +94,29 @@ FILE* update_file(file_bibak file) {
     return new_file;
 }
 
+int delete_file(file_bibak file){
+    // Concatenate the directory and file path
+    int total_length = strlen(directory) + strlen(file.path) + 1;
+    char* result_path = (char*)malloc(total_length * sizeof(char));
+    snprintf(result_path, total_length, "%s%s", directory, file.path);
+
+    // Check if the file isn't exist
+    FILE* file_t = fopen(result_path, "rb");
+    if (file_t == NULL) {
+        free(result_path);
+        return -1; // File with the same name doesn't exists, return -1 as an error indicator
+    }
+    fclose(file_t);
+
+    if(remove(result_path) != 0){
+        free(result_path);
+        return -1;
+    }
+
+    free(result_path);
+    return 0;
+}
+
 void *handle_client(void *arg) {
     int server_socket = *(int *)arg;
 
@@ -107,7 +130,7 @@ void *handle_client(void *arg) {
     while (1) {
         // Read data from the client
         char buffer[1024];
-        memset(buffer, 0, sizeof(buffer));
+        memset(buffer, '\0', sizeof(buffer));
         int n = read(client_socket, buffer, sizeof(buffer));
         if (n < 0) {
             perror("Error reading from socket");
@@ -116,10 +139,6 @@ void *handle_client(void *arg) {
         
         request* req = json_to_request(buffer);
 
-        if(req->request_t > 3 || req->request_t < 0){
-            printf("Client is exited\n");
-            break;
-        }
 
         printf("\n===============================\n");
         printf("======= Request Received ======");
@@ -148,8 +167,9 @@ void *handle_client(void *arg) {
             //UPLOAD
             case 0:
                 //Get File size
-                memset(buffer, 0, sizeof(buffer));
+                memset(buffer, '\0', sizeof(buffer));
                 file_data_length = req->file.size;
+                memset(buffer, 0, sizeof(buffer));
 
                 //printf("size:%d\n",file_data_length);
 
@@ -186,22 +206,18 @@ void *handle_client(void *arg) {
                 if(is_valid == 0){
                     res->response_t = ERROR;
                 }
-
-                //Prepare the response
-                json = response_to_json(res,sizeof(buffer));
-
-                //Send the response
-                strcpy(buffer,json);
-                if(write(client_socket,buffer,sizeof(buffer)) < 0){
-                    perror("ERROR : Response can not be sent to the server!\n");
-                }
- 
                 break;
             //DOWNLOAD
             case 1:
                 break;
             //DELETE
             case 2:
+                int is_deleted = delete_file(req->file);
+
+                if(is_deleted != 0){
+                    res->response_t = ERROR;
+                }
+
                 break;
             //UPDATE
             case 3:
@@ -242,18 +258,18 @@ void *handle_client(void *arg) {
                     res->response_t = ERROR;
                 }
 
-
-                //Prepare the response
-                char* json = response_to_json(res,sizeof(buffer));
-        
-                //Send the response
-                strcpy(buffer,json);
-                if(write(client_socket,buffer,sizeof(buffer)) < 0){
-                    perror("ERROR : Response can not be sent to the server!\n");
-                }
-
-                //printf("Response gönderildi\n");
                 break;
+        }
+
+        memset(buffer, 0, sizeof(buffer));
+
+        //Prepare the response
+        json = response_to_json(res,sizeof(buffer));
+
+        //Send the response
+        strcpy(buffer,json);
+        if(write(client_socket,buffer,sizeof(buffer)) < 0){
+            perror("ERROR : Response can not be sent to the server!\n");
         }
 
         free(json);
@@ -263,6 +279,7 @@ void *handle_client(void *arg) {
         free(res->file.name);
         free(res->file.path);
         free(res);
+        memset(buffer, '\0', sizeof(buffer));
     }
 
     close(client_socket);

@@ -270,6 +270,8 @@ int main(int argc, char* argv[]) {
             //Convert request to json
             char* request_json = request_to_json(requests[i],buffer_size);
             
+            memset(buffer, '\0', sizeof(buffer));
+
             //Copy json to buffer
             strcpy(buffer,request_json);
 
@@ -309,6 +311,10 @@ int main(int argc, char* argv[]) {
                     break;
                 //DELETE
                 case 2:
+                    memset(buffer, 0, sizeof(buffer));
+                    //Get response
+                    read(clientSocket,buffer,sizeof(buffer));
+                    printf("\nresponse : %s\n",buffer);
                     break;
                 //UPDATE
                 case 3:
@@ -335,6 +341,8 @@ int main(int argc, char* argv[]) {
 
                     break;
             }
+
+            memset(buffer, '\0', sizeof(buffer));
         }
 
         //Free requests memory
