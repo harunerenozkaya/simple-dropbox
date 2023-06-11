@@ -108,6 +108,8 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
         }
 
         if(isFound == 0){
+            //TODO change deleted file modified date as deleted time
+
             // File is deleted , post request to server the delete the file
             printf("DELETE : %s\n",log_dir_info->files[i].name);
 
@@ -241,9 +243,6 @@ void send_local_change_requests(int clientSocket, request* requests, int request
                 printf("\nresponse: %s\n", buffer);
                 break;
             }
-            case 1: // DOWNLOAD
-                // TODO: Implement download logic
-                break;
             case 2: { // DELETE
                 memset(buffer, 0, sizeof(buffer));
                 read(clientSocket, buffer, sizeof(buffer));
@@ -394,14 +393,11 @@ int control_remote_changes(char* dir_name,int clientSocket, request** requests){
 
     //printf("Log file length :%d\n",server_log_size);
 
-
+    //Read the server log file
     char* server_log = malloc((server_log_size) * sizeof(char));
     memset(server_log , '\0' , sizeof(server_log));
-
     memset(buffer, '\0', sizeof(buffer));
    
-
-    
     int willRead = 0;
     int bytesRead = 0;
     size_t start = 0;
@@ -485,8 +481,6 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
         strcpy(buffer, request_json);
         free(request_json);
 
-        
-
         switch (requests[i].request_t) {
 
             case 1: // DOWNLOAD
@@ -525,6 +519,40 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
         memset(buffer, '\0', sizeof(buffer));
     }
 
+}
+
+int update_log_file(char* dir_name){
+    dir_info_bibak* curr_dir_info = malloc(sizeof(dir_info_bibak));
+    curr_dir_info->total_file_count = 0;
+    curr_dir_info->last_modified_time[0] = '\0';
+    curr_dir_info->files = NULL;
+
+    // Take the current directory info
+    search_dir(dir_name,curr_dir_info);
+
+    //Create log file path
+    char* log_file_path = malloc(strlen(dir_name) + strlen("/log.txt") + 1);
+    strcpy(log_file_path, dir_name);
+    strcat(log_file_path, "/log.txt");
+
+    //Update log file
+    write_log_file(log_file_path,curr_dir_info);
+    
+    // Free allocated memory
+
+    for (int i = 0; i < curr_dir_info->total_file_count; i++) {
+        free(curr_dir_info->files[i].name);
+        free(curr_dir_info->files[i].path);
+    }
+    
+    if(curr_dir_info->total_file_count > 0)
+        free(curr_dir_info->files);
+
+    free(curr_dir_info);
+
+    free(log_file_path);
+
+    return 0;
 }
 
 int main(int argc, char* argv[]) {
@@ -589,7 +617,7 @@ int main(int argc, char* argv[]) {
 
         //Update the log file according to new remote changes
         if(request_count > 0){
-            
+            update_log_file(dirName);
         }
 
         // Free requests memory
@@ -599,9 +627,6 @@ int main(int argc, char* argv[]) {
         }
         free(requests);
 
-        
-
-        sleep(5);
     }
 
     // Close the client socket
