@@ -210,6 +210,8 @@ void *handle_client(void *arg) {
                 break;
             //DOWNLOAD
             case 1:
+                //TODO implememnt download.
+
                 break;
             //DELETE
             case 2:

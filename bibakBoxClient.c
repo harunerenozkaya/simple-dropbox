@@ -11,6 +11,51 @@
 #define SERVER_IP_ADRESS "192.168.1.115"
 int count = 0;
 
+FILE* download_file(file_bibak file , char* dir_name) {
+    // Concatenate the directory and file path
+    int total_length = strlen(dir_name) + strlen(file.path) + 1;
+    char* file_path = (char*)malloc(total_length * sizeof(char));
+    snprintf(file_path, total_length, "%s%s", dir_name, file.path);
+
+    // Create a copy of the file path
+    char* path_copy = strdup(file_path);
+
+    // Find the last occurrence of '/' in the file path
+    char* last_slash = strrchr(path_copy, '/');
+    if (last_slash == NULL) {
+        printf("Invalid file path: %s\n", file_path);
+        free(path_copy);
+        return NULL;
+    }
+
+    // Extract the directory path and file name
+    *last_slash = '\0';  // Null-terminate the directory path
+    const char* directory_path = path_copy;
+    const char* file_name = last_slash + 1;
+
+    // Create the directories if they don't exist
+    struct stat st;
+    if (stat(directory_path, &st) != 0) {
+        // Directory does not exist, create it
+        int result = mkdir(directory_path, 0777);
+        if (result != 0) {
+            printf("Error creating directory: %s\n", directory_path);
+            free(path_copy);
+            return NULL;
+        }
+    }
+
+    // Create the new file
+    FILE* new_file = fopen(file_path, "wb");
+    if (new_file == NULL) {
+        free(file_path);
+        return NULL; // Error creating the file, return NULL as an error indicator
+    }
+
+    //printf("File created successfully: %s\n", file_path);
+    return new_file;
+}
+
 void initialize_log_file(char* dir_name){
     //Create log file path
     char* log_file_path = malloc(strlen(dir_name) + strlen("/log.txt") + 1);
@@ -484,36 +529,51 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
         switch (requests[i].request_t) {
 
             case 1: // DOWNLOAD
-                /*
+                // Send request to the server
                 send(clientSocket, buffer, sizeof(buffer), 0);
-                // TODO: Implement download logic
+                memset(buffer, 0, sizeof(buffer));
+                
+                //Get file data size
+                recv(clientSocket, buffer, sizeof(buffer), 0);
+                int file_data_length = atoi(buffer);
+
+                //Control if the file is downloadable
+                FILE* file_descriptor = download_file(requests[i].file , dirName);
+
+                //Read file data
+                int bytesRead = 0;
+                int writedByte = 0;
+                while (writedByte < file_data_length && (bytesRead = recv(clientSocket, buffer, sizeof(buffer),0)) > 0) {
+                    //Write if the file is uploadable
+                    writedByte += bytesRead;
+
+                    if(file_descriptor != NULL){
+                        fwrite(buffer,bytesRead,1,file_descriptor);
+                    }
+                }
+
+                int is_valid = 0;
+
+                //Close the fd
+                if(file_descriptor != NULL){
+                    is_valid = 1;
+                    fclose(file_descriptor);
+                }
+
+                //Change the new file last modification time to original last modification time
+                if(is_valid == 1){
+                    change_last_modification_time(requests[i].file.path,dirName,requests[i].file.last_modified_time);
+                }
+
+                //Response
                 read(clientSocket, buffer, sizeof(buffer));
                 printf("\nresponse: %s\n", buffer);
-                */
+                
                 break;
             case 2: { // DELETE
                 remove(requests[i].file.path);
                 break;
             }
-            /*
-            case 3: { // UPDATE
-                memset(buffer, 0, sizeof(buffer));
-                FILE* file = fopen(requests[i].file.path, "rb");
-
-                size_t bytesRead = 0;
-                while ((bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file)) > 0) {
-                    int n = write(clientSocket, buffer, bytesRead);
-                    if (n < 0) {
-                        perror("Error writing to socket");
-                    }
-                }
-
-                fclose(file);
-
-                read(clientSocket, buffer, sizeof(buffer));
-                printf("\nresponse: %s\n", buffer);
-                break;
-            }*/
         }
 
         memset(buffer, '\0', sizeof(buffer));
@@ -539,7 +599,6 @@ int update_log_file(char* dir_name){
     write_log_file(log_file_path,curr_dir_info);
     
     // Free allocated memory
-
     for (int i = 0; i < curr_dir_info->total_file_count; i++) {
         free(curr_dir_info->files[i].name);
         free(curr_dir_info->files[i].path);
