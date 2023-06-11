@@ -169,13 +169,21 @@ void *handle_client(void *arg) {
                     }
                 }
 
-                //Change the new file last modification time to original last modification time
+                int is_valid = 0;
+
+                //Close the fd
                 if(file_descriptor != NULL){
-                    change_last_modification_time(file_descriptor,req->file.last_modified_time);
+                    is_valid = 1;
+                    fclose(file_descriptor);
+                }
+
+                //Change the new file last modification time to original last modification time
+                if(is_valid == 1){
+                    change_last_modification_time(req->file.path,directory,req->file.last_modified_time);
                 }
                 
                 //Change response status if fd is NULL
-                if(file_descriptor == NULL){
+                if(is_valid == 0){
                     res->response_t = ERROR;
                 }
 
@@ -186,12 +194,6 @@ void *handle_client(void *arg) {
                 strcpy(buffer,json);
                 if(write(client_socket,buffer,sizeof(buffer)) < 0){
                     perror("ERROR : Response can not be sent to the server!\n");
-                }
-
-                //Close the fd
-                if(file_descriptor != NULL){
-                    fclose(file_descriptor);
-                    printf("kapatıldı\n");
                 }
  
                 break;
@@ -224,11 +226,22 @@ void *handle_client(void *arg) {
                     }
                 }
 
-                if(file_descriptor == NULL){
+                //Close the fd
+                if(file_descriptor != NULL){
+                    is_valid = 1;
+                    fclose(file_descriptor);
+                }
+
+                //Change the new file last modification time to original last modification time
+                if(is_valid == 1){
+                    change_last_modification_time(req->file.path,directory,req->file.last_modified_time);
+                }
+                
+                //Change response status if fd is NULL
+                if(is_valid == 0){
                     res->response_t = ERROR;
                 }
 
-                //TODO change last modified time
 
                 //Prepare the response
                 char* json = response_to_json(res,sizeof(buffer));
@@ -237,11 +250,6 @@ void *handle_client(void *arg) {
                 strcpy(buffer,json);
                 if(write(client_socket,buffer,sizeof(buffer)) < 0){
                     perror("ERROR : Response can not be sent to the server!\n");
-                }
-
-                //Close file descriptor
-                if(file_descriptor != NULL){
-                    fclose(file_descriptor);
                 }
 
                 //printf("Response gönderildi\n");

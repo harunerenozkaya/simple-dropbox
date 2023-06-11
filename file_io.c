@@ -6,6 +6,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <fcntl.h>
+#include <utime.h>
 
 typedef struct {
     char* name;
@@ -38,35 +39,29 @@ int parse_date_time(const char *date_time_str, struct tm *tm_struct) {
     return 0;
 }
 
-int change_last_modification_time(FILE *file, const char *last_modification_time) {
-    int fd = fileno(file);
-    if (fd == -1) {
-        perror("Failed to get file descriptor");
-        return -1;
-    }
+int change_last_modification_time(char* file_path, const char* directory ,const char *last_modification_time) {
+    // Concatenate the directory and file path
+    int total_length = strlen(directory) + strlen(file_path) + 1; // +1 for '/', +1 for '\0'
+    char* real_path = (char*)malloc(total_length * sizeof(char));
+    snprintf(real_path, total_length, "%s%s", directory, file_path);
 
     struct tm mod_time_struct;
     if (parse_date_time(last_modification_time, &mod_time_struct) == -1) {
         return -1;
     }
 
-    printf("hour :%d\n",mod_time_struct.tm_hour);
-    printf("minute :%d\n",mod_time_struct.tm_min);
-    printf("second :%d\n",mod_time_struct.tm_sec);
-    printf("is :%d\n",mod_time_struct.tm_isdst);
 
-    struct timespec times[2];
-    times[0].tv_sec = 0;  // Set access time to 0 to leave it unchanged
-    times[0].tv_nsec = 0;
-    times[1].tv_sec = mktime(&mod_time_struct);  // Set modification time
-    times[1].tv_nsec = 0;
+    struct utimbuf new_times;
+    new_times.actime = 0; // Access time (set to 0 to keep it unchanged)
+    new_times.modtime = mktime(&mod_time_struct); // New modified time (in seconds since the epoch)
+    
 
-    if (futimens(fd, times) == -1) {
-        perror("Failed to set file times");
-        return -1;
+    if (utime(real_path, &new_times) != 0) {
+        perror("utime");
+        return 1;
     }
 
-    printf("File times modified successfully\n");
+    //printf("File times modified successfully\n");
     return 0;
 }
 

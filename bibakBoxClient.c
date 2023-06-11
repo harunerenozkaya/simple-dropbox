@@ -8,7 +8,7 @@
 #include <arpa/inet.h>
 
 #define BUFFER_SIZE 1024
-#define SERVER_IP_ADRESS "10.211.55.13"
+#define SERVER_IP_ADRESS "192.168.1.115"
 int count = 0;
 
 void initialize_log_file(char* dir_name){
