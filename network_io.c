@@ -4,7 +4,8 @@ typedef enum {
     UPLOAD,
     DOWNLOAD,
     DELETE,
-    UPDATE
+    UPDATE,
+    LOG
 } request_type;
 
 typedef enum {
