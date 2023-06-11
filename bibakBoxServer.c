@@ -169,14 +169,15 @@ void *handle_client(void *arg) {
                     }
                 }
 
+                //Change the new file last modification time to original last modification time
+                if(file_descriptor != NULL){
+                    change_last_modification_time(file_descriptor,req->file.last_modified_time);
+                }
                 
-                //printf("bytesWritten : %d\n",writedByte);
-
+                //Change response status if fd is NULL
                 if(file_descriptor == NULL){
                     res->response_t = ERROR;
                 }
-
-                //TODO change last modified time
 
                 //Prepare the response
                 json = response_to_json(res,sizeof(buffer));
@@ -187,11 +188,12 @@ void *handle_client(void *arg) {
                     perror("ERROR : Response can not be sent to the server!\n");
                 }
 
+                //Close the fd
                 if(file_descriptor != NULL){
                     fclose(file_descriptor);
+                    printf("kapatıldı\n");
                 }
  
-                //printf("Response gönderildi\n");
                 break;
             //DOWNLOAD
             case 1:

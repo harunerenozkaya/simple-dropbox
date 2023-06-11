@@ -4,6 +4,8 @@
 #include <dirent.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <sys/time.h>
+#include <fcntl.h>
 
 typedef struct {
     char* name;
@@ -17,6 +19,56 @@ typedef struct {
     char last_modified_time[20];
     file_bibak* files;
 } dir_info_bibak;
+
+int parse_date_time(const char *date_time_str, struct tm *tm_struct) {
+    int year, month, day, hour, minute, second;
+    if (sscanf(date_time_str, "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6) {
+        fprintf(stderr, "Failed to parse the date and time string\n");
+        return -1;
+    }
+
+    tm_struct->tm_year = year - 1900;
+    tm_struct->tm_mon = month - 1;
+    tm_struct->tm_mday = day;
+    tm_struct->tm_hour = hour;
+    tm_struct->tm_min = minute;
+    tm_struct->tm_sec = second;
+
+
+    return 0;
+}
+
+int change_last_modification_time(FILE *file, const char *last_modification_time) {
+    int fd = fileno(file);
+    if (fd == -1) {
+        perror("Failed to get file descriptor");
+        return -1;
+    }
+
+    struct tm mod_time_struct;
+    if (parse_date_time(last_modification_time, &mod_time_struct) == -1) {
+        return -1;
+    }
+
+    printf("hour :%d\n",mod_time_struct.tm_hour);
+    printf("minute :%d\n",mod_time_struct.tm_min);
+    printf("second :%d\n",mod_time_struct.tm_sec);
+    printf("is :%d\n",mod_time_struct.tm_isdst);
+
+    struct timespec times[2];
+    times[0].tv_sec = 0;  // Set access time to 0 to leave it unchanged
+    times[0].tv_nsec = 0;
+    times[1].tv_sec = mktime(&mod_time_struct);  // Set modification time
+    times[1].tv_nsec = 0;
+
+    if (futimens(fd, times) == -1) {
+        perror("Failed to set file times");
+        return -1;
+    }
+
+    printf("File times modified successfully\n");
+    return 0;
+}
 
 
 char* read_file_data(const char* path) {
