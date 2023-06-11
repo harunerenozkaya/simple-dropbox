@@ -275,7 +275,97 @@ void send_local_change_requests(int clientSocket, request* requests, int request
 
 }
 
-void control_remote_changes(char* dirName,int clientSocket){
+int compare_server_and_client_dir(dir_info_bibak* server_dir_info, dir_info_bibak* client_dir_info ,request** requests , char* local_dir){
+    int request_count = 0;
+    int isFound = 0;
+    
+    
+    //Print log and current dir main attributes
+    /*
+    printf("server_dir_info->total_file_count : %d\n",server_dir_info->total_file_count);
+    printf("client_dir_info->total_file_count  : %d\n",client_dir_info->total_file_count );
+    printf("server_dir_info->last_modified_time  : %s\n",server_dir_info->last_modified_time);
+    printf("client_dir_info->last_modified_time  : %s\n",client_dir_info->last_modified_time);
+
+    printf("server : %s\n",generate_dir_info_str(server_dir_info,0,""));
+    printf("client : %s\n",generate_dir_info_str(client_dir_info,0,""));
+    */
+
+    //Search server files in the client log file
+    for(int i = 0; i < server_dir_info->total_file_count; i++){
+        isFound = 0;
+
+        for(int j = 0; j < client_dir_info->total_file_count; j++){
+            
+            char* client_relative_path = extract_local_dir_path_part_str(client_dir_info->files[j].path,local_dir);
+        
+
+            if( strcmp(server_dir_info->files[i].name , client_dir_info->files[j].name) == 0 && 
+                strcmp(server_dir_info->files[i].path , client_relative_path) == 0){
+
+                //File is found.
+                isFound = 1;
+
+                if(strcmp(server_dir_info->files[i].last_modified_time,client_dir_info->files[j].last_modified_time) != 0){
+                    // The last modified time is different of server and client file so it has modified.
+                    // Post request to server to the update the file
+                    printf("DOWNLOAD : %s\n",server_dir_info->files[i].name);
+
+                    //Prepare request
+                    request_count += 1;
+                    *requests = realloc(*requests,request_count * sizeof(request));
+                    create_request(&(*requests)[request_count - 1], DOWNLOAD, server_dir_info->files[i]);
+
+                }
+
+                break;
+            }
+        }
+
+        if(isFound == 0){
+            // File is added new , post request to server the upload the file
+            printf("DOWNLOAD : %s\n",server_dir_info->files[i].name);
+
+            //Prepare request
+            request_count += 1;
+            *requests = realloc(*requests,request_count * sizeof(request));
+            create_request(&(*requests)[request_count - 1], DOWNLOAD, server_dir_info->files[i]);
+            
+        }
+    }
+
+    //Search log files in current files to determine deleted files
+    for(int i = 0; i < client_dir_info->total_file_count; i++){
+        char* client_relative_path = extract_local_dir_path_part_str(client_dir_info->files[i].path,local_dir);
+
+        isFound = 0;
+        for(int j = 0; j < server_dir_info->total_file_count; j++){
+            
+            if( strcmp(client_dir_info->files[i].name , server_dir_info->files[j].name) == 0 && 
+                strcmp(client_relative_path, server_dir_info->files[j].path) == 0){
+                //File is found.
+                isFound = 1;
+                break;
+            }
+        }
+
+        if(isFound == 0){
+            // File is deleted , post request to server the delete the file
+            printf("DELETE : %s\n",client_dir_info->files[i].name);
+
+            //Prepare request
+            request_count += 1;
+            *requests = realloc(*requests,request_count * sizeof(request));
+            create_request(&(*requests)[request_count - 1], DELETE, client_dir_info->files[i]);
+        
+        }
+    }
+
+
+    return request_count;
+}
+
+int control_remote_changes(char* dir_name,int clientSocket, request** requests){
 
     //Create buffer
     char buffer[BUFFER_SIZE];
@@ -340,16 +430,101 @@ void control_remote_changes(char* dirName,int clientSocket){
     }
 
     server_log[server_log_size-1] = '\0';
-    printf("\nserverlog : %s\n",server_log);
-
+    //printf("\nserverlog : %s\n",server_log);
 
     //Get response
     memset(buffer, 0, sizeof(buffer));
     recv(clientSocket, buffer, sizeof(buffer), 0);
     printf("\nresponse : %s\n",buffer);
 
+    //Parse server log file
+    dir_info_bibak* server_dir_info = parse_dir_info_str(server_log);
+    
+    //Parse client log file
+    char* client_log_file_path = malloc(strlen(dir_name) + strlen("/log.txt") + 1);
+    strcpy(client_log_file_path, dir_name);
+    strcat(client_log_file_path, "/log.txt");
+    
+    dir_info_bibak* client_dir_info = read_log_file(client_log_file_path);
+
+    //Compare the directories
+    int request_count = compare_server_and_client_dir(server_dir_info,client_dir_info,requests,dir_name);
+
     //free(req);
+    for (int i = 0; i < server_dir_info->total_file_count; i++) {
+        free(server_dir_info->files[i].name);
+        free(server_dir_info->files[i].path);
+    }
+    
+    if(server_dir_info->total_file_count > 0)
+        free(server_dir_info->files);
+
+    free(server_dir_info);
+
+    for (int i = 0; i < client_dir_info->total_file_count; i++) {
+        free(client_dir_info->files[i].name);
+        free(client_dir_info->files[i].path);
+    }
+    
+    free(client_dir_info->files);
+    
+    free(client_dir_info);
+
+    free(client_log_file_path);
     free(server_log);
+
+    return request_count;
+}
+
+void send_server_change_requests(int clientSocket, request* requests, int request_count, char* dirName) {
+    for (int i = 0; i < request_count; i++) {
+        char buffer[BUFFER_SIZE];
+        memset(buffer, 0, sizeof(buffer));
+
+        char* request_json = request_to_json(requests[i], BUFFER_SIZE);
+        strcpy(buffer, request_json);
+        free(request_json);
+
+        
+
+        switch (requests[i].request_t) {
+
+            case 1: // DOWNLOAD
+                /*
+                send(clientSocket, buffer, sizeof(buffer), 0);
+                // TODO: Implement download logic
+                read(clientSocket, buffer, sizeof(buffer));
+                printf("\nresponse: %s\n", buffer);
+                */
+                break;
+            case 2: { // DELETE
+                remove(requests[i].file.path);
+                break;
+            }
+            /*
+            case 3: { // UPDATE
+                memset(buffer, 0, sizeof(buffer));
+                FILE* file = fopen(requests[i].file.path, "rb");
+
+                size_t bytesRead = 0;
+                while ((bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file)) > 0) {
+                    int n = write(clientSocket, buffer, bytesRead);
+                    if (n < 0) {
+                        perror("Error writing to socket");
+                    }
+                }
+
+                fclose(file);
+
+                read(clientSocket, buffer, sizeof(buffer));
+                printf("\nresponse: %s\n", buffer);
+                break;
+            }*/
+        }
+
+        memset(buffer, '\0', sizeof(buffer));
+    }
+
 }
 
 int main(int argc, char* argv[]) {
@@ -390,9 +565,11 @@ int main(int argc, char* argv[]) {
 
     //Start main loop
     while(1){
+        //Control current client directory and log file and detect the differencies
         request* requests = NULL;
         int request_count = control_local_changes(dirName,clientSocket,&(requests));
 
+        // Send the differencies to the server
         send_local_change_requests(clientSocket,requests,request_count,dirName);
 
         // Free requests memory
@@ -402,8 +579,29 @@ int main(int argc, char* argv[]) {
         }
         free(requests);
 
-        control_remote_changes(dirName,clientSocket);
-    
+
+        //Control the client directory and server directory and detect the differencies        
+        requests = NULL;
+        request_count = control_remote_changes(dirName,clientSocket,&(requests));
+
+        // Send differencies to the server
+        send_server_change_requests(clientSocket,requests,request_count,dirName);
+
+        //Update the log file according to new remote changes
+        if(request_count > 0){
+            
+        }
+
+        // Free requests memory
+        for (int i = 0; i < request_count; i++) {
+            free(requests[i].file.name);
+            free(requests[i].file.path);
+        }
+        free(requests);
+
+        
+
+        sleep(5);
     }
 
     // Close the client socket

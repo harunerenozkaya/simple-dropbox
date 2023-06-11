@@ -21,6 +21,48 @@ typedef struct {
     file_bibak* files;
 } dir_info_bibak;
 
+char* extract_local_dir_path_part_str(char* path,const char* local_dir) {
+    // Calculate the length of the local directory
+    int local_dir_len = strlen(local_dir);
+
+    // Calculate the length of the remaining path
+    int remaining_path_len = strlen(path) - local_dir_len;
+
+    // Allocate memory for the relative path
+    char* relative_path = (char*)malloc(remaining_path_len + 1);
+
+    // Copy the remaining path to the relative path variable
+    strcpy(relative_path, path + local_dir_len);
+
+    return relative_path;
+}
+
+void append_local_dir_path_part_str(char* path, const char* local_dir) {
+    // Calculate the length of the local directory
+    int local_dir_len = strlen(local_dir);
+
+    // Calculate the length of the relative path
+    int relative_path_len = strlen(path);
+
+    // Calculate the total length of the updated file path
+    int updated_file_path_len = local_dir_len + relative_path_len;
+
+    // Allocate memory for the updated file path
+    char* updated_file_path = (char*)malloc(updated_file_path_len + 1);
+
+    // Copy the local directory to the updated file path
+    strcpy(updated_file_path, local_dir);
+
+    // Concatenate the relative path to the updated file path
+    strcat(updated_file_path, path);
+
+    // Update the file path in the request structure
+    strcpy(path, updated_file_path);
+
+    // Free the memory allocated for the updated file path
+    free(updated_file_path);
+}
+
 int parse_date_time(const char *date_time_str, struct tm *tm_struct) {
     int year, month, day, hour, minute, second;
     if (sscanf(date_time_str, "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6) {
@@ -273,7 +315,7 @@ int search_dir(const char* directory , dir_info_bibak* dir_info) {
 }
 
 // Convert dir_info to string
-char* generate_dir_info_str(dir_info_bibak* dir_info) {
+char* generate_dir_info_str(dir_info_bibak* dir_info , int isRelative ,const char* local_dir) {
     // Allocate memory for the resulting string
     int buffer_size = 100000000;
     char* result = malloc(buffer_size);
@@ -301,7 +343,20 @@ char* generate_dir_info_str(dir_info_bibak* dir_info) {
         //buffer_reallocation(result,buffer_size);
         snprintf(result + strlen(result), buffer_size - strlen(result), "      size : %d,\n", dir_info->files[i].size);
         //buffer_reallocation(result,buffer_size);
-        snprintf(result + strlen(result), buffer_size - strlen(result), "      path : \"%s\"\n", dir_info->files[i].path);
+        if(isRelative == 0){
+            snprintf(result + strlen(result), buffer_size - strlen(result), "      path : \"%s\"\n", dir_info->files[i].path);
+        }
+        else{
+            char* temp = malloc(strlen(dir_info->files[i].path) + 1);
+            strcpy(temp,dir_info->files[i].path);
+            free(dir_info->files[i].path);
+
+            dir_info->files[i].path = extract_local_dir_path_part_str(temp,local_dir);
+
+            free(temp);
+
+            snprintf(result + strlen(result), buffer_size - strlen(result), "      path : \"%s\"\n", dir_info->files[i].path);
+        }
         //buffer_reallocation(result,buffer_size);
         snprintf(result + strlen(result), buffer_size - strlen(result), "    }%s\n", i == dir_info->total_file_count - 1 ? "" : ",");
         //buffer_reallocation(result,buffer_size);
@@ -451,7 +506,7 @@ void write_log_file(const char* file_path, dir_info_bibak* dir_info) {
     }
 
     // Generate the string representation of the dir_info_bibak structure
-    char* dir_info_str = generate_dir_info_str(dir_info);
+    char* dir_info_str = generate_dir_info_str(dir_info ,0,"");
     if (dir_info_str == NULL) {
         fclose(file);
         fprintf(stderr, "Failed to generate directory info string\n");
@@ -483,6 +538,7 @@ void cleanup_dir_info(dir_info_bibak* dir_info) {
 
     free(dir_info);
 }
+
 
 /*
 int main(){

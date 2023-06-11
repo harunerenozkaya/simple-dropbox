@@ -269,7 +269,7 @@ void *handle_client(void *arg) {
                 curr_dir_info->files = NULL;
                 search_dir(directory,curr_dir_info);
 
-                char* str = generate_dir_info_str(curr_dir_info);
+                char* str = generate_dir_info_str(curr_dir_info,1,directory);
                 int length = strlen(str);
 
                 //Send to client the log file length
