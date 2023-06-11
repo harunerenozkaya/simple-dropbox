@@ -302,28 +302,28 @@ void control_remote_changes(char* dirName,int clientSocket){
     recv(clientSocket, buffer, sizeof(buffer), 0);
     server_log_size = atoi(buffer);
 
-    printf("Log file length :%d\n",server_log_size);
+    //printf("Log file length :%d\n",server_log_size);
 
 
-    char* server_log = malloc((server_log_size + 1) * sizeof(char));
+    char* server_log = malloc((server_log_size) * sizeof(char));
     memset(server_log , '\0' , sizeof(server_log));
 
     memset(buffer, '\0', sizeof(buffer));
    
 
     
-     int okunacak = 0;
+    int willRead = 0;
     int bytesRead = 0;
     size_t start = 0;
 
     if(server_log_size - start < sizeof(buffer)){
-        okunacak = server_log_size - start;
+        willRead = server_log_size - start;
     }
     else{
-        okunacak = sizeof(buffer);
+        willRead = sizeof(buffer);
     }
 
-    while (start < server_log_size && (bytesRead = recv(clientSocket, buffer, okunacak ,0)) > 0) {
+    while (start < server_log_size && (bytesRead = recv(clientSocket, buffer, willRead ,0)) > 0) {
         strncpy(server_log + start ,buffer, bytesRead);
         memset(buffer, '\0', sizeof(buffer));
     
@@ -331,15 +331,17 @@ void control_remote_changes(char* dirName,int clientSocket){
 
     
         if(server_log_size - start < sizeof(buffer)){
-            okunacak = server_log_size - start;
+            willRead = server_log_size - start;
         }
         else{
-            okunacak = sizeof(buffer);
+            willRead = sizeof(buffer);
         }
 
-        printf("\nserverlog : %s\n",server_log);
-
     }
+
+    server_log[server_log_size-1] = '\0';
+    printf("\nserverlog : %s\n",server_log);
+
 
     //Get response
     memset(buffer, 0, sizeof(buffer));
