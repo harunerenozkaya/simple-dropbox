@@ -21,6 +21,53 @@ typedef struct {
     file_bibak* files;
 } dir_info_bibak;
 
+// Open the file which will be downloaded from server and create if the inner directories needed
+FILE* create_file_and_dir(file_bibak file , char* dir_name) {
+    // Concatenate the directory and file path
+    int total_length = strlen(dir_name) + strlen(file.path) + 1;
+    char* file_path = (char*)malloc(total_length * sizeof(char));
+    snprintf(file_path, total_length, "%s%s", dir_name, file.path);
+
+    // Create a copy of the file path
+    char* path_copy = strdup(file_path);
+
+    // Find the last occurrence of '/' in the file path
+    char* last_slash = strrchr(path_copy, '/');
+    if (last_slash == NULL) {
+        printf("Invalid file path: %s\n", file_path);
+        free(path_copy);
+        return NULL;
+    }
+
+    // Extract the directory path and file name
+    *last_slash = '\0';  // Null-terminate the directory path
+    const char* directory_path = path_copy;
+    const char* file_name = last_slash + 1;
+
+    // Create the directories if they don't exist
+    struct stat st;
+    if (stat(directory_path, &st) != 0) {
+        // Directory does not exist, create it
+        int result = mkdir(directory_path, 0777);
+        if (result != 0) {
+            printf("Error creating directory: %s\n", directory_path);
+            free(path_copy);
+            return NULL;
+        }
+    }
+
+    // Create the new file
+    FILE* new_file = fopen(file_path, "wb");
+    if (new_file == NULL) {
+        free(file_path);
+        return NULL; // Error creating the file, return NULL as an error indicator
+    }
+
+    //printf("File created successfully: %s\n", file_path);
+    return new_file;
+}
+
+// Extract base and relative part of the path
 char* extract_local_dir_path_part_str(char* path,const char* local_dir) {
     // Calculate the length of the local directory
     int local_dir_len = strlen(local_dir);
@@ -37,6 +84,7 @@ char* extract_local_dir_path_part_str(char* path,const char* local_dir) {
     return relative_path;
 }
 
+// Conconacete base and relative part of the path
 void append_local_dir_path_part_str(char* path, const char* local_dir) {
     // Calculate the length of the local directory
     int local_dir_len = strlen(local_dir);
@@ -63,6 +111,7 @@ void append_local_dir_path_part_str(char* path, const char* local_dir) {
     free(updated_file_path);
 }
 
+// Parse the date time str to tm_struct
 int parse_date_time(const char *date_time_str, struct tm *tm_struct) {
     int year, month, day, hour, minute, second;
     if (sscanf(date_time_str, "%d-%d-%d %d:%d:%d", &year, &month, &day, &hour, &minute, &second) != 6) {
@@ -77,56 +126,62 @@ int parse_date_time(const char *date_time_str, struct tm *tm_struct) {
     tm_struct->tm_min = minute;
     tm_struct->tm_sec = second;
 
-
     return 0;
 }
 
+// Change the last modification time of the given file
 int change_last_modification_time(char* file_path, const char* directory ,const char *last_modification_time) {
+
     // Concatenate the directory and file path
     int total_length = strlen(directory) + strlen(file_path) + 1; // +1 for '/', +1 for '\0'
     char* real_path = (char*)malloc(total_length * sizeof(char));
     snprintf(real_path, total_length, "%s%s", directory, file_path);
 
+    // Parse the given time
     struct tm mod_time_struct;
     if (parse_date_time(last_modification_time, &mod_time_struct) == -1) {
         return -1;
     }
 
-
+    // Assign the time
     struct utimbuf new_times;
     new_times.actime = 0; // Access time (set to 0 to keep it unchanged)
     new_times.modtime = mktime(&mod_time_struct); // New modified time (in seconds since the epoch)
     
-
+    // Change the time
     if (utime(real_path, &new_times) != 0) {
         perror("utime");
         return 1;
     }
 
-    //printf("File times modified successfully\n");
     return 0;
 }
 
-
+// Read the file and return the content
 char* read_file_data(const char* path) {
-    FILE* file = fopen(path, "rb"); // Open the file in binary mode for reading
+
+    // Open the file in binary mode for reading
+    FILE* file = fopen(path, "rb"); 
     if (file == NULL) {
         perror("Error opening file");
         return NULL;
     }
 
-    fseek(file, 0, SEEK_END); // Move the file pointer to the end of the file
-    long file_size = ftell(file); // Get the file size
-    fseek(file, 0, SEEK_SET); // Move the file pointer back to the beginning of the file
+    // Get the file size
+    fseek(file, 0, SEEK_END); 
+    long file_size = ftell(file); 
+    fseek(file, 0, SEEK_SET); 
 
-    char* file_data = (char*)malloc(file_size + 1); // Allocate memory for the file data
+    // Allocate memory for the file data
+    char* file_data = (char*)malloc(file_size + 1); 
     if (file_data == NULL) {
         fclose(file);
         perror("Error allocating memory for file data");
         return NULL;
     }
 
-    size_t read_size = fread(file_data, 1, file_size, file); // Read the file data into the allocated memory
+    // Read the file data into the allocated memory
+    size_t read_size = fread(file_data, 1, file_size, file); 
     if (read_size != file_size) {
         fclose(file);
         free(file_data);
@@ -134,23 +189,10 @@ char* read_file_data(const char* path) {
         return NULL;
     }
 
-    file_data[file_size] = '\0'; // Null-terminate the file data
+    file_data[file_size] = '\0';
 
-    fclose(file); // Close the file
+    fclose(file);
     return file_data;
-}
-
-void buffer_reallocation(char* result,int buffer_size){
-    if(strlen(result) + 200 > buffer_size){
-        char* temp = realloc(result, buffer_size*2);
-        if (temp == NULL) {
-            fprintf(stderr, "Memory reallocation failed!\n");
-            free(result);
-        }
-        strcpy(temp,result);
-        free(result);
-        result = temp;
-    }
 }
 
 // Compare two time and return latest one
@@ -201,6 +243,7 @@ const char* get_latest_timestamp(const char* timestamp1, const char* timestamp2)
     return timestamp1;
 }
 
+// Add the gien file to dir_info
 void add_file_to_dir(dir_info_bibak* dir_info, file_bibak file) {
     // Increase the total_file_count
     dir_info->total_file_count++;
@@ -215,6 +258,7 @@ void add_file_to_dir(dir_info_bibak* dir_info, file_bibak file) {
     // Add the file to the files array
     file_bibak new_file;
 
+    // Assign values of the file
     new_file.name = malloc(strlen(file.name) + 1);
     strcpy(new_file.name, file.name);
 
@@ -326,23 +370,19 @@ char* generate_dir_info_str(dir_info_bibak* dir_info , int isRelative ,const cha
     
     // Create the directory information string
     snprintf(result, buffer_size, "{\n");
-    //buffer_reallocation(result,buffer_size);
     snprintf(result + strlen(result), buffer_size - strlen(result), "  total_file_count : %d,\n", dir_info->total_file_count);
-    //buffer_reallocation(result,buffer_size);
     snprintf(result + strlen(result), buffer_size - strlen(result), "  last_modified_time : \"%s\",\n", dir_info->last_modified_time);
-    //buffer_reallocation(result,buffer_size);
     snprintf(result + strlen(result), buffer_size - strlen(result), "  files : [\n");
-    //buffer_reallocation(result,buffer_size);
 
     for (int i = 0; i < dir_info->total_file_count; i++) {
         snprintf(result + strlen(result), buffer_size - strlen(result), "    {\n");
-        //buffer_reallocation(result,buffer_size);
+
         snprintf(result + strlen(result), buffer_size - strlen(result), "      name : \"%s\",\n", dir_info->files[i].name);
-        //buffer_reallocation(result,buffer_size);
+
         snprintf(result + strlen(result), buffer_size - strlen(result), "      last_modified_time : \"%s\",\n", dir_info->files[i].last_modified_time);
-        //buffer_reallocation(result,buffer_size);
+
         snprintf(result + strlen(result), buffer_size - strlen(result), "      size : %d,\n", dir_info->files[i].size);
-        //buffer_reallocation(result,buffer_size);
+
         if(isRelative == 0){
             snprintf(result + strlen(result), buffer_size - strlen(result), "      path : \"%s\"\n", dir_info->files[i].path);
         }
@@ -357,15 +397,12 @@ char* generate_dir_info_str(dir_info_bibak* dir_info , int isRelative ,const cha
 
             snprintf(result + strlen(result), buffer_size - strlen(result), "      path : \"%s\"\n", dir_info->files[i].path);
         }
-        //buffer_reallocation(result,buffer_size);
+
         snprintf(result + strlen(result), buffer_size - strlen(result), "    }%s\n", i == dir_info->total_file_count - 1 ? "" : ",");
-        //buffer_reallocation(result,buffer_size);
     }
 
     snprintf(result + strlen(result), buffer_size - strlen(result), "  ]\n");
-    //buffer_reallocation(result,buffer_size);
     snprintf(result + strlen(result), buffer_size - strlen(result), "}\n");
-    //buffer_reallocation(result,buffer_size);
 
     return result;
 }
@@ -497,7 +534,7 @@ dir_info_bibak* read_log_file(const char* file_path) {
     return dir_info;
 }
 
-//Write the given dir_info by converting it to string
+//Write the given dir_info to log file by converting it to string
 void write_log_file(const char* file_path, dir_info_bibak* dir_info) {
     FILE* file = fopen(file_path, "w");
     if (file == NULL) {
@@ -523,28 +560,3 @@ void write_log_file(const char* file_path, dir_info_bibak* dir_info) {
     free(dir_info_str);
 }
 
-// Cleanup the allocated memory in dir_info
-void cleanup_dir_info(dir_info_bibak* dir_info) {
-    if (dir_info == NULL)
-        return;
-
-    if (dir_info->files != NULL) {
-        for (int i = 0; i < dir_info->total_file_count; i++) {
-            free(dir_info->files[i].name);
-            free(dir_info->files[i].path);
-        }
-        free(dir_info->files);
-    }
-
-    free(dir_info);
-}
-
-
-/*
-int main(){
-    dir_info_bibak* dir_info = malloc(sizeof(dir_info_bibak));
-    search_dir("./serverDir",dir_info);
-    write_log_file("./serverDir/log.txt",dir_info);
-    dir_info_bibak dir_info2 = read_log_file("./serverDir/log.txt");
-    printf("%s",generate_dir_info_str(&dir_info2));
-}*/
