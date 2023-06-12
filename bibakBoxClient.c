@@ -119,8 +119,7 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
                 if(strcmp(curr_dir_info->files[i].last_modified_time,log_dir_info->files[j].last_modified_time) != 0){
                     // The last modified time is different of log and current file so it has modified.
                     // Post request to server to the update the file
-                    printf("UPDATE : %s\n",curr_dir_info->files[i].name);
-
+          
                     //Prepare request
                     request_count += 1;
                     *requests = realloc(*requests,request_count * sizeof(request));
@@ -135,8 +134,7 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
 
         if(isFound == 0){
             // File is added new , post request to server the upload the file
-            printf("UPLOAD : %s\n",curr_dir_info->files[i].name);
-
+    
             //Prepare request
             request_count += 1;
             *requests = realloc(*requests,request_count * sizeof(request));
@@ -163,7 +161,6 @@ int compare_log_and_current_dir(char* dir_name,dir_info_bibak* curr_dir_info, di
             //TODO change deleted file modified date as deleted time
 
             // File is deleted , post request to server the delete the file
-            printf("DELETE : %s\n",log_dir_info->files[i].name);
 
             //Prepare request
             request_count += 1;
@@ -232,6 +229,7 @@ int control_local_changes(char* dir_name,int client_socket ,request** requests){
 //Send the requests of local changes to server updates itself
 void send_local_change_requests(int clientSocket, request* requests, int request_count, char* dirName) {
     for (int i = 0; i < request_count; i++) {
+        char req_s[7];
 
         //Prepare the buffer
         char buffer[BUFFER_SIZE];
@@ -254,7 +252,11 @@ void send_local_change_requests(int clientSocket, request* requests, int request
             
             // UPLOAD
             case 0: 
-            { 
+            {   
+                // Assign str req
+                strcpy(req_s,"UPLOAD");
+                req_s[6] = '\0';
+
                 // Open the file to be uploaded
                 memset(buffer, 0, sizeof(buffer));
                 FILE* file = fopen(requests[i].file.path, "rb");
@@ -273,14 +275,22 @@ void send_local_change_requests(int clientSocket, request* requests, int request
 
             // DELETE
             case 2: 
-            {
+            {   
+                // Assign str req
+                strcpy(req_s,"DELETE");
+                req_s[6] = '\0';
+
                 memset(buffer, 0, sizeof(buffer));
                 break;
             }
 
             // UPDATE
             case 3: 
-            {
+            {   
+                // Assign str req
+                strcpy(req_s,"UPDATE");
+                req_s[6] = '\0';
+
                 // Open the file to be updated 
                 memset(buffer, 0, sizeof(buffer));
                 FILE* file = fopen(requests[i].file.path, "rb");
@@ -300,11 +310,28 @@ void send_local_change_requests(int clientSocket, request* requests, int request
             }
         }
 
+        //Print request details
+        printf("\n===============================\n");
+        printf("=======   Request Sent   ======");
+        printf("\n===============================\n\n");
+        printf("request_type : %s\n",req_s);
+        printf("file_name : %s\n",requests[i].file.last_modified_time);
+        printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
+        printf("file_size:: %d\n",requests[i].file.size);
+        printf("file_path: %s\n\n",requests[i].file.path);
+   
+
         //Get the response and print
         read(clientSocket, buffer, sizeof(buffer));
-        printf("\nresponse: %s\n", buffer);
+        response* res = json_to_response(buffer);
+        printf("\n===============================\n");
+        printf("======= Response Received ======");
+        printf("\n===============================\n\n");
+        printf("response_type : %s\n\n",res->response_t  == 0 ? "DONE" : "ERROR");
+        
 
         memset(buffer, '\0', sizeof(buffer));
+        free(res);
     }
 
 }
@@ -400,8 +427,7 @@ int compare_server_and_client_dir(dir_info_bibak* server_dir_info, dir_info_biba
                 if(strcmp(server_dir_info->files[i].last_modified_time,client_dir_info->files[j].last_modified_time) != 0){
                     // The last modified time is different of server and client file so it has modified.
                     // Post request to server to the update the file
-                    printf("DOWNLOAD : %s\n",server_dir_info->files[i].name);
-
+    
                     //Prepare request
                     request_count += 1;
                     *requests = realloc(*requests,request_count * sizeof(request));
@@ -415,8 +441,7 @@ int compare_server_and_client_dir(dir_info_bibak* server_dir_info, dir_info_biba
 
         if(isFound == 0){
             // File is added new , post request to server the upload the file
-            printf("DOWNLOAD : %s\n",server_dir_info->files[i].name);
-
+ 
             //Prepare request
             request_count += 1;
             *requests = realloc(*requests,request_count * sizeof(request));
@@ -442,7 +467,6 @@ int compare_server_and_client_dir(dir_info_bibak* server_dir_info, dir_info_biba
 
         if(isFound == 0){
             // File is deleted , post request to server the delete the file
-            printf("DELETE : %s\n",client_dir_info->files[i].name);
 
             //Prepare request
             request_count += 1;
@@ -538,9 +562,27 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
                     change_last_modification_time(requests[i].file.path,dirName,requests[i].file.last_modified_time);
                 }
 
+                //Print request details
+                printf("\n===============================\n");
+                printf("=======   Request Sent   ======");
+                printf("\n===============================\n\n");
+                printf("request_type : %s\n","DOWNLOAD");
+                printf("file_name : %s\n",requests[i].file.last_modified_time);
+                printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
+                printf("file_size:: %d\n",requests[i].file.size);
+                printf("file_path: %s\n\n",requests[i].file.path);
+
                 //Response
                 read(clientSocket, buffer, sizeof(buffer));
-                printf("\nresponse: %s\n", buffer);
+                response* res = json_to_response(buffer);
+
+                printf("\n===============================\n");
+                printf("======= Response Received ======");
+                printf("\n===============================\n\n");
+                printf("response_type : %s\n\n",res->response_t  == 0 ? "DONE" : "ERROR");
+              
+                // Free allocated memory
+                free(res);
 
                 //If response status is error so rollback the operation
                 //TODO if there is an error delete created inner directories
@@ -548,7 +590,17 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
                 break;
 
             // DELETE    
-            case 2: { 
+            case 2: {
+                //Print request details
+                printf("\n===========================================\n");
+                printf("=======  Request Operated on Client  ======");
+                printf("\n===========================================\n");
+                printf("request_type : %s\n","DELETE");
+                printf("file_name : %s\n",requests[i].file.last_modified_time);
+                printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
+                printf("file_size:: %d\n",requests[i].file.size);
+                printf("file_path: %s\n\n",requests[i].file.path);
+
                 remove(requests[i].file.path);
                 break;
             }

@@ -166,7 +166,10 @@ void *handle_client(void *arg) {
             printf("\n===============================\n");
             printf("======= Request Received ======");
             printf("\n===============================\n\n");
-            printf("request_type : %d\n",req->request_t);
+            printf("request_type : %s\n",req->request_t == 0 ? "UPLOAD" : 
+            req->request_t == 1 ? "DOWNLOAD" : 
+            req->request_t == 2 ? "DELETE" : 
+            "UPDATE");
             printf("file_name : %s\n",req->file.last_modified_time);
             printf("file_last_modified_time: %s\n",req->file.last_modified_time);
             printf("file_size:: %d\n",req->file.size);
@@ -180,7 +183,7 @@ void *handle_client(void *arg) {
         int file_data_length = 0;
 
         response* res = malloc(sizeof(response));
-        res->response_t = DONE;
+        res->response_t = 0;
         res->file.name = NULL;
         res->file.path = NULL;
         res->file.size = 0;
@@ -188,9 +191,12 @@ void *handle_client(void *arg) {
         FILE* file_descriptor;
         char* json = NULL;
 
+        int is_valid = 0;
+
         switch(req->request_t){
             //UPLOAD
             case 0:
+
                 //Get File size
                 memset(buffer, '\0', sizeof(buffer));
                 file_data_length = req->file.size;
@@ -214,8 +220,6 @@ void *handle_client(void *arg) {
                     }
                 }
 
-                int is_valid = 0;
-
                 //Close the fd
                 if(file_descriptor != NULL){
                     is_valid = 1;
@@ -229,7 +233,7 @@ void *handle_client(void *arg) {
                 
                 //Change response status if fd is NULL
                 if(is_valid == 0){
-                    res->response_t = ERROR;
+                    res->response_t = 1;
                 }
                 break;
                 
@@ -248,40 +252,41 @@ void *handle_client(void *arg) {
                     }
                 }
 
-                //If server couldn't find the file
+                //If server couldn't find the file write empty message
                 if(file_descriptor == NULL){
                     int written = 0;
-
+        
                     while(written < req->file.size){
                         memset(buffer,'\0',sizeof(buffer));
                         int n = write(client_socket, buffer, bytesRead);
                         written += n;
                     }
-
-                    is_valid = 0;
                 }
 
                 //Close the fd
                 if(file_descriptor != NULL){
                     fclose(file_descriptor);
+                    is_valid = 1;
                 }
 
                 //Change response status if fd is NULL
                 if(is_valid == 0){
-                    res->response_t = ERROR;
+                    res->response_t = 1;
                 }
 
                 break;
+
             //DELETE
             case 2:
                 //Delete the file
                 int is_deleted = delete_file(req->file);
 
                 if(is_deleted != 0){
-                    res->response_t = ERROR;
+                    res->response_t = 1;
                 }
 
                 break;
+
             //UPDATE
             case 3:
                 //Get File size
@@ -318,7 +323,7 @@ void *handle_client(void *arg) {
                 
                 //Change response status if fd is NULL
                 if(is_valid == 0){
-                    res->response_t = ERROR;
+                    res->response_t = 1;
                 }
 
                 break;
@@ -382,6 +387,14 @@ void *handle_client(void *arg) {
         strcpy(buffer,json);
         if(write(client_socket,buffer,sizeof(buffer)) < 0){
             perror("ERROR : Response can not be sent to the server!\n");
+        }
+
+        // Print response message
+        if(req->request_t >= 0 && req->request_t < 4){
+            printf("\n===============================\n");
+            printf("======= Response Sent ======");
+            printf("\n===============================\n\n");
+            printf("response_type : %s\n\n",res->response_t == 0 ? "DONE" : "ERROR");
         }
 
         free(json);

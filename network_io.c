@@ -139,12 +139,12 @@ response* json_to_response(const char* json) {
     char file_path[100];
 
     //Parse
-    sscanf(json, "{\"response_t\": %d, \"file\": {\"name\": \"%[^\"]\", \"last_modified_time\": \"%[^\"]\", \"size\": %d, \"path\": \"%[^\"]\"}}",
+    sscanf(json, "{\"response_t\":\"%d\", \"file\": {\"name\": \"%[^\"]\", \"last_modified_time\": \"%[^\"]\", \"size\": %d, \"path\": \"%[^\"]\"}}",
            &response_t, file_name, file_last_modified_time, &file_size, file_path);
 
     
     //Assign
-    resp->response_t = (response_status)response_t;
+    resp->response_t = (response_status) response_t;
 
     resp->file.name = malloc(strlen(file_name) + 1);
     strcpy(resp->file.name, file_name);
