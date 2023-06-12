@@ -14,6 +14,7 @@
 
 const char* directory;
 
+// Create a file which will be uploaded from client and create directories if it is needed
 FILE* upload_file(file_bibak file) {
     // Concatenate the directory and file path
     int total_length = strlen(directory) + strlen(file.path) + 1;
@@ -67,6 +68,7 @@ FILE* upload_file(file_bibak file) {
     return new_file;
 }
 
+// Create a file which will be updated from client and create directories if it is needed
 FILE* update_file(file_bibak file) {
     
     // Concatenate the directory and file path
@@ -93,6 +95,7 @@ FILE* update_file(file_bibak file) {
     return new_file;
 }
 
+// Delete the file
 int delete_file(file_bibak file){
     // Concatenate the directory and file path
     int total_length = strlen(directory) + strlen(file.path) + 1;
@@ -116,6 +119,7 @@ int delete_file(file_bibak file){
     return 0;
 }
 
+// Open the file which will be downloaded by client
 FILE* download_file(file_bibak file) {
     // Concatenate the directory and file path
     int total_length = strlen(directory) + strlen(file.path) + 1;
@@ -133,6 +137,7 @@ FILE* download_file(file_bibak file) {
     return file_t;
 }
 
+// Handler for a client requests
 void *handle_client(void *arg) {
     int server_socket = *(int *)arg;
 
@@ -267,6 +272,7 @@ void *handle_client(void *arg) {
                 break;
             //DELETE
             case 2:
+                //Delete the file
                 int is_deleted = delete_file(req->file);
 
                 if(is_deleted != 0){
@@ -317,12 +323,16 @@ void *handle_client(void *arg) {
 
             //LOG
             case 4:
+                // Allocate the memory
                 dir_info_bibak* curr_dir_info = malloc(sizeof(dir_info_bibak));
                 curr_dir_info->total_file_count = 0;
                 curr_dir_info->last_modified_time[0] = '\0';
                 curr_dir_info->files = NULL;
-                search_dir(directory,curr_dir_info);
 
+                // Search the directory of the server
+                search_dir(directory,curr_dir_info);    
+
+                // Convert server directory to the json to send
                 char* str = generate_dir_info_str(curr_dir_info,1,directory);
                 int length = strlen(str);
 
@@ -346,7 +356,6 @@ void *handle_client(void *arg) {
                 }
                 
                 //Free allocated memories
-
                 free(str);
                 
                 for (int i = 0; i < curr_dir_info->total_file_count; i++) {
