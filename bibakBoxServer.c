@@ -162,16 +162,18 @@ void *handle_client(void *arg) {
         request* req = json_to_request(buffer);
 
         //Print request details
-        printf("\n===============================\n");
-        printf("======= Request Received ======");
-        printf("\n===============================\n\n");
-        printf("request_type : %d\n",req->request_t);
-        printf("file_name : %s\n",req->file.last_modified_time);
-        printf("file_last_modified_time: %s\n",req->file.last_modified_time);
-        printf("file_size:: %d\n",req->file.size);
-        printf("file_path: %s\n",req->file.path);
-        printf("\n===============================\n");
-
+        if(req->request_t >= 0 && req->request_t < 4){
+            printf("\n===============================\n");
+            printf("======= Request Received ======");
+            printf("\n===============================\n\n");
+            printf("request_type : %d\n",req->request_t);
+            printf("file_name : %s\n",req->file.last_modified_time);
+            printf("file_last_modified_time: %s\n",req->file.last_modified_time);
+            printf("file_size:: %d\n",req->file.size);
+            printf("file_path: %s\n",req->file.path);
+            printf("\n===============================\n");
+        }
+        
         //Initialize request handling variables
         int bytesRead = 0;
         int writedByte = 0;

@@ -370,7 +370,7 @@ char* get_server_log(int clientSocket) {
     //Get response
     memset(buffer, 0, sizeof(buffer));
     recv(clientSocket, buffer, sizeof(buffer), 0);
-    printf("\nresponse: %s\n", buffer);
+    //printf("\nresponse: %s\n", buffer);
 
     return server_log;
 }
