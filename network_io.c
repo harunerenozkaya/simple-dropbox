@@ -71,6 +71,7 @@ int create_response(response* res,response_status response_t, file_bibak file) {
     return 0;
 }
 
+// Convert request to json
 char* request_to_json(const request req ,int buffer_size) {
     char* json = malloc(sizeof(char)*buffer_size);
 
@@ -80,7 +81,10 @@ char* request_to_json(const request req ,int buffer_size) {
     return json;
 }
 
+// Convert json to request
 request* json_to_request(const char* json) {
+
+    // Allocate memory
     request* req = malloc(sizeof(request));
 
     int request_t;
@@ -91,8 +95,11 @@ request* json_to_request(const char* json) {
     char file_size_str[10];
     char file_path[100];
 
+    // Parse
     sscanf(json, "{\"request_type\": %d, \"file_name\": \"%[^\"]\", \"file_last_modified_time\": \"%[^\"]\", \"file_size\": %d, \"file_path\": \"%[^\"]\"}",
            &request_t, file_name, file_last_modified_time, &file_size, file_path);
+
+    // Assign
 
     req->request_t = (request_type) request_t;
 
@@ -108,6 +115,7 @@ request* json_to_request(const char* json) {
     return req;
 }
 
+// Convert response to json
 char* response_to_json (const response* resp, int buffer_size) {
     char* json = malloc(sizeof(char)*buffer_size);
 
@@ -117,7 +125,9 @@ char* response_to_json (const response* resp, int buffer_size) {
     return json;
 }
 
+// Convert json to response
 response* json_to_response(const char* json) {
+    //Allocate memories
     response* resp = malloc(sizeof(response));
 
     int response_t;
@@ -128,9 +138,12 @@ response* json_to_response(const char* json) {
     char file_size_str[10];
     char file_path[100];
 
+    //Parse
     sscanf(json, "{\"response_t\": %d, \"file\": {\"name\": \"%[^\"]\", \"last_modified_time\": \"%[^\"]\", \"size\": %d, \"path\": \"%[^\"]\"}}",
            &response_t, file_name, file_last_modified_time, &file_size, file_path);
 
+    
+    //Assign
     resp->response_t = (response_status)response_t;
 
     resp->file.name = malloc(strlen(file_name) + 1);
@@ -146,6 +159,7 @@ response* json_to_response(const char* json) {
     return resp;
 }
 
+// Extract the local dir to request's file's path
 void extract_local_dir_path_part(request* req, char* local_dir) {
     // Calculate the length of the local directory
     int local_dir_len = strlen(local_dir);
@@ -166,6 +180,7 @@ void extract_local_dir_path_part(request* req, char* local_dir) {
     free(relative_path);
 }
 
+// Append the local dir to request's file's path
 void append_local_dir_path_part(request* req, char* local_dir) {
     // Calculate the length of the local directory
     int local_dir_len = strlen(local_dir);
