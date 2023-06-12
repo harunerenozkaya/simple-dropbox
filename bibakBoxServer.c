@@ -116,6 +116,23 @@ int delete_file(file_bibak file){
     return 0;
 }
 
+FILE* download_file(file_bibak file) {
+    // Concatenate the directory and file path
+    int total_length = strlen(directory) + strlen(file.path) + 1;
+    char* result_path = (char*)malloc(total_length * sizeof(char));
+    snprintf(result_path, total_length, "%s%s", directory, file.path);
+
+    // Check if the file is exist
+    FILE* file_t = fopen(result_path, "rb");
+    if (file_t == NULL) {
+        free(result_path);
+        return NULL; // File with the same name doesn't exists, return NULL as an error indicator
+    }
+  
+    free(result_path);
+    return file_t;
+}
+
 void *handle_client(void *arg) {
     int server_socket = *(int *)arg;
 
@@ -208,9 +225,44 @@ void *handle_client(void *arg) {
                     res->response_t = ERROR;
                 }
                 break;
+                
             //DOWNLOAD
             case 1:
-                //TODO implememnt download.
+                //Get the file
+                memset(buffer, 0, sizeof(buffer));
+                file_descriptor = download_file(req->file);
+                
+                //Read the file content and write to buffer
+                bytesRead = 0;
+                while (file_descriptor != NULL && (bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file_descriptor)) > 0) {
+                    int n = write(client_socket, buffer, bytesRead);
+                    if (n < 0) {
+                        perror("Error writing to socket");
+                    }
+                }
+
+                //If server couldn't find the file
+                if(file_descriptor == NULL){
+                    int written = 0;
+
+                    while(written < req->file.size){
+                        memset(buffer,'\0',sizeof(buffer));
+                        int n = write(client_socket, buffer, bytesRead);
+                        written += n;
+                    }
+
+                    is_valid = 0;
+                }
+
+                //Close the fd
+                if(file_descriptor != NULL){
+                    fclose(file_descriptor);
+                }
+
+                //Change response status if fd is NULL
+                if(is_valid == 0){
+                    res->response_t = ERROR;
+                }
 
                 break;
             //DELETE

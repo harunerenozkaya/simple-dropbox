@@ -415,19 +415,19 @@ int control_remote_changes(char* dir_name,int clientSocket, request** requests){
     char buffer[BUFFER_SIZE];
     memset(buffer, 0, sizeof(buffer));
 
-    //Create log request
+    //Create LOG request
     request req;
     req.request_t = LOG;
     req.file.name = NULL;
     req.file.size = 0;
     req.file.path = NULL;
 
-    //Create request json
+    //Create LOG request json
     char* request_json = request_to_json(req, BUFFER_SIZE);
     strcpy(buffer, request_json);
     free(request_json);
 
-    //Send request to server
+    //Send LOG request to server
     send(clientSocket, buffer, sizeof(buffer), 0);
     memset(buffer, '\0', sizeof(buffer));
 
@@ -528,14 +528,15 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
 
         switch (requests[i].request_t) {
 
-            case 1: // DOWNLOAD
+            //TODO if there is an error delete created inner directories
+            // DOWNLOAD
+            case 1: 
                 // Send request to the server
                 send(clientSocket, buffer, sizeof(buffer), 0);
                 memset(buffer, 0, sizeof(buffer));
                 
-                //Get file data size
-                recv(clientSocket, buffer, sizeof(buffer), 0);
-                int file_data_length = atoi(buffer);
+                //Get server side file size
+                int file_data_length = requests[i].file.size;
 
                 //Control if the file is downloadable
                 FILE* file_descriptor = download_file(requests[i].file , dirName);
@@ -543,13 +544,18 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
                 //Read file data
                 int bytesRead = 0;
                 int writedByte = 0;
-                while (writedByte < file_data_length && (bytesRead = recv(clientSocket, buffer, sizeof(buffer),0)) > 0) {
+                while (file_descriptor != NULL && writedByte < file_data_length && (bytesRead = recv(clientSocket, buffer, sizeof(buffer),0)) > 0) {
                     //Write if the file is uploadable
                     writedByte += bytesRead;
 
                     if(file_descriptor != NULL){
                         fwrite(buffer,bytesRead,1,file_descriptor);
                     }
+                }
+
+                //If file can not be opened properly
+                while(file_descriptor == NULL && writedByte < file_data_length && (bytesRead = recv(clientSocket, buffer, sizeof(buffer),0)) > 0){
+                    writedByte += bytesRead;
                 }
 
                 int is_valid = 0;
@@ -568,9 +574,13 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
                 //Response
                 read(clientSocket, buffer, sizeof(buffer));
                 printf("\nresponse: %s\n", buffer);
+
+                //If response status is error so rollback the operation
                 
                 break;
-            case 2: { // DELETE
+
+            // DELETE    
+            case 2: { 
                 remove(requests[i].file.path);
                 break;
             }
