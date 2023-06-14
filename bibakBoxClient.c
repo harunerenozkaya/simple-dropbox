@@ -315,7 +315,7 @@ void send_local_change_requests(int clientSocket, request* requests, int request
         printf("=======   Request Sent   ======");
         printf("\n===============================\n\n");
         printf("request_type : %s\n",req_s);
-        printf("file_name : %s\n",requests[i].file.last_modified_time);
+        printf("file_name : %s\n",requests[i].file.name);
         printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
         printf("file_size:: %d\n",requests[i].file.size);
         printf("file_path: %s\n\n",requests[i].file.path);
@@ -484,7 +484,12 @@ int compare_server_and_client_dir(dir_info_bibak* server_dir_info, dir_info_biba
 int control_remote_changes(char* dir_name,int clientSocket, request** requests){
 
     //Get server current directory
-    char* server_log = get_server_log(clientSocket);
+    char* server_log = NULL;
+    do{
+        server_log = get_server_log(clientSocket);
+    }while(server_log == NULL || strlen(server_log) < 60);
+
+
 
     //Parse server log file
     dir_info_bibak* server_dir_info = parse_dir_info_str(server_log);
@@ -524,10 +529,15 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
             case 1: 
                 // Send request to the server
                 send(clientSocket, buffer, sizeof(buffer), 0);
-                memset(buffer, 0, sizeof(buffer));
+                memset(buffer, '\0', sizeof(buffer));
                 
                 //Get server side file size
-                int file_data_length = requests[i].file.size;
+                int file_data_length = 0;
+                recv(clientSocket,buffer,sizeof(buffer),0);
+                file_data_length = atoi(buffer);
+                memset(buffer, 0, sizeof(buffer));
+
+                //printf("Server side file size : %d\n",file_data_length);
 
                 //Control if the file is downloadable
                 FILE* file_descriptor = create_file_and_dir(requests[i].file , dirName);
@@ -535,13 +545,17 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
                 //Read file data
                 int bytesRead = 0;
                 int writedByte = 0;
-                while (file_descriptor != NULL && writedByte < file_data_length && (bytesRead = recv(clientSocket, buffer, sizeof(buffer),0)) > 0) {
+                
+                int will_read = file_data_length < sizeof(buffer) ? file_data_length : sizeof(buffer); 
+                while (file_descriptor != NULL && writedByte < file_data_length && (bytesRead = recv(clientSocket, buffer, will_read,0)) > 0) {
                     //Write if the file is uploadable
                     writedByte += bytesRead;
 
                     if(file_descriptor != NULL){
                         fwrite(buffer,bytesRead,1,file_descriptor);
                     }
+
+                    will_read = will_read - writedByte < sizeof(buffer) ? will_read - writedByte : sizeof(buffer);
                 }
 
                 //If file can not be opened properly
@@ -567,7 +581,7 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
                 printf("=======   Request Sent   ======");
                 printf("\n===============================\n\n");
                 printf("request_type : %s\n","DOWNLOAD");
-                printf("file_name : %s\n",requests[i].file.last_modified_time);
+                printf("file_name : %s\n",requests[i].file.name);
                 printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
                 printf("file_size:: %d\n",requests[i].file.size);
                 printf("file_path: %s\n\n",requests[i].file.path);
@@ -596,7 +610,7 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
                 printf("=======  Request Operated on Client  ======");
                 printf("\n===========================================\n");
                 printf("request_type : %s\n","DELETE");
-                printf("file_name : %s\n",requests[i].file.last_modified_time);
+                printf("file_name : %s\n",requests[i].file.name);
                 printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
                 printf("file_size:: %d\n",requests[i].file.size);
                 printf("file_path: %s\n\n",requests[i].file.path);
@@ -725,6 +739,8 @@ int main(int argc, char* argv[]) {
 
         // Free requests memory
         free_request_memory(requests,request_count);
+
+        sleep(0);
     }
 
     // Close the client socket

@@ -8,11 +8,14 @@
 #include <pthread.h>
 #include "network_io.c"
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 10
 
 const char* directory;
+
+pthread_mutex_t log_mutex;
 
 // Create a file which will be uploaded from client and create directories if it is needed
 FILE* upload_file(file_bibak file) {
@@ -76,19 +79,36 @@ FILE* update_file(file_bibak file) {
     char* result_path = (char*)malloc(total_length * sizeof(char));
     snprintf(result_path, total_length, "%s%s", directory, file.path);
 
-    // Check if the file isn't exist
-    FILE* file_t = fopen(result_path, "rb");
-    if (file_t == NULL) {
+    // Check if the file exists
+    struct stat file_info;
+    if (stat(result_path, &file_info) == -1) {
         free(result_path);
-        return NULL; // File with the same name doesn't exists, return NULL as an error indicator
+        return NULL; // File with the same name doesn't exist, return NULL as an error indicator
     }
-    fclose(file_t);
+
+    // Convert file last modification time to string
+    struct tm* timeinfo = localtime(&file_info.st_mtime);
+    char current_file_time_str[20];
+    strftime(current_file_time_str, sizeof(current_file_time_str), "%Y-%m-%d %H:%M:%S", timeinfo);
+
+    // Compare current file last modified time and coming one
+    // If the current is newer than ignore the coming one
+    if(strcmp(current_file_time_str,get_latest_timestamp(current_file_time_str,file.last_modified_time)) == 0){
+        return NULL;
+    }    
 
     // Truncate the file and write
     FILE* new_file = fopen(result_path, "wb");
     if (new_file == NULL) {
         free(result_path);
         return NULL; // Error creating the file, return NULL as an error indicator
+    }
+
+    // Acquire an exclusive lock on the file
+    if (flock(fileno(new_file), LOCK_EX) == -1) {
+        //perror("Error acquiring lock");
+        close(fileno(new_file));
+        return NULL;
     }
 
     free(result_path);
@@ -120,7 +140,9 @@ int delete_file(file_bibak file){
 }
 
 // Open the file which will be downloaded by client
-FILE* download_file(file_bibak file) {
+FILE* download_file(file_bibak file ,int* file_size_d) {
+    struct stat file_stat;
+
     // Concatenate the directory and file path
     int total_length = strlen(directory) + strlen(file.path) + 1;
     char* result_path = (char*)malloc(total_length * sizeof(char));
@@ -132,6 +154,11 @@ FILE* download_file(file_bibak file) {
         free(result_path);
         return NULL; // File with the same name doesn't exists, return NULL as an error indicator
     }
+
+    if (stat(result_path, &file_stat) == 0) {
+        off_t file_size = file_stat.st_size;
+        *file_size_d = (int) file_size;
+    } 
   
     free(result_path);
     return file_t;
@@ -170,7 +197,7 @@ void *handle_client(void *arg) {
             req->request_t == 1 ? "DOWNLOAD" : 
             req->request_t == 2 ? "DELETE" : 
             "UPDATE");
-            printf("file_name : %s\n",req->file.last_modified_time);
+            printf("file_name : %s\n",req->file.name);
             printf("file_last_modified_time: %s\n",req->file.last_modified_time);
             printf("file_size:: %d\n",req->file.size);
             printf("file_path: %s\n",req->file.path);
@@ -192,11 +219,11 @@ void *handle_client(void *arg) {
         char* json = NULL;
 
         int is_valid = 0;
-
+        //pthread_mutex_lock(&log_mutex);
         switch(req->request_t){
             //UPLOAD
             case 0:
-
+                //pthread_mutex_lock(&log_mutex);
                 //Get File size
                 memset(buffer, '\0', sizeof(buffer));
                 file_data_length = req->file.size;
@@ -210,7 +237,9 @@ void *handle_client(void *arg) {
                 //Get the file content         
                 bytesRead = 0;
                 writedByte = 0;
-                while (writedByte < file_data_length && (bytesRead = recv(client_socket, buffer, sizeof(buffer) , 0)) > 0) {
+
+                int will_read = file_data_length < sizeof(buffer) ? file_data_length : sizeof(buffer); 
+                while (writedByte < file_data_length && (bytesRead = recv(client_socket, buffer, will_read , 0)) > 0) {
                     //Write if the file is uploadable
 
                     writedByte += bytesRead;
@@ -218,6 +247,8 @@ void *handle_client(void *arg) {
                     if(file_descriptor != NULL){
                         fwrite(buffer,bytesRead,1,file_descriptor);
                     }
+
+                    will_read = will_read - writedByte < sizeof(buffer) ? will_read - writedByte : sizeof(buffer);
                 }
 
                 //Close the fd
@@ -235,14 +266,22 @@ void *handle_client(void *arg) {
                 if(is_valid == 0){
                     res->response_t = 1;
                 }
+                //pthread_mutex_unlock(&log_mutex);
                 break;
                 
             //DOWNLOAD
             case 1:
-                //Get the file
-                memset(buffer, 0, sizeof(buffer));
-                file_descriptor = download_file(req->file);
-                
+                int file_size = 0;
+
+                //Get the file and size
+                memset(buffer, '\0', sizeof(buffer));
+                file_descriptor = download_file(req->file , &file_size);
+
+                //Send file size to the client
+                //printf("File size :%d\n",file_size);
+                sprintf(buffer,"%d",file_size);
+                write(client_socket,buffer,sizeof(buffer));
+
                 //Read the file content and write to buffer
                 bytesRead = 0;
                 while (file_descriptor != NULL && (bytesRead = fread(buffer, sizeof(char), sizeof(buffer), file_descriptor)) > 0) {
@@ -289,6 +328,7 @@ void *handle_client(void *arg) {
 
             //UPDATE
             case 3:
+                //pthread_mutex_lock(&log_mutex);
                 //Get File size
                 memset(buffer, 0, sizeof(buffer));
                 file_data_length = req->file.size;
@@ -310,6 +350,13 @@ void *handle_client(void *arg) {
                     }
                 }
 
+                // Unlock the file
+                if (flock(fileno(file_descriptor), LOCK_UN) == -1) {
+                    //perror("Error acquiring lock");
+                    close(fileno(file_descriptor));
+                    return NULL;
+                }
+
                 //Close the fd
                 if(file_descriptor != NULL){
                     is_valid = 1;
@@ -320,12 +367,12 @@ void *handle_client(void *arg) {
                 if(is_valid == 1){
                     change_last_modification_time(req->file.path,directory,req->file.last_modified_time);
                 }
-                
+
                 //Change response status if fd is NULL
                 if(is_valid == 0){
                     res->response_t = 1;
                 }
-
+                //pthread_mutex_unlock(&log_mutex);
                 break;
 
             //LOG
@@ -397,6 +444,7 @@ void *handle_client(void *arg) {
             printf("response_type : %s\n\n",res->response_t == 0 ? "DONE" : "ERROR");
         }
 
+        //pthread_mutex_unlock(&log_mutex);
         free(json);
         free(req->file.name);
         free(req->file.path);
