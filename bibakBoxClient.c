@@ -8,7 +8,7 @@
 #include <arpa/inet.h>
 
 #define BUFFER_SIZE 1024
-#define SERVER_IP_ADRESS "192.168.1.115"
+#define SERVER_IP_ADRESS "192.168.1.153"
 
 
 // Free memory
@@ -658,6 +658,21 @@ int main(int argc, char* argv[]) {
     // Extract arguments
     char* dirName = argv[1];
     int portNumber = atoi(argv[2]);
+
+    // Open or create the directory
+    DIR* dir = opendir(dirName);
+    if (dir == NULL) {
+        // Directory does not exist, create it
+        int status = mkdir(dirName, 0777);
+        if (status == -1) {
+            perror("ERROR : Directory could not be created");
+            return 1;
+        }
+        //printf("Directory created successfully\n");
+    }
+    else{
+        closedir(dir);
+    }
 
     // Create a socket with IPV4 TCP protocol
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);

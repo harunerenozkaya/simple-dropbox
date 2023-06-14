@@ -423,13 +423,21 @@ int main(int argc, char* argv[]) {
     int thread_pool_size = atoi(argv[2]);
     int portNumber = atoi(argv[3]);
 
-    // Open the directory
+    // Open or create the directory
     DIR* dir = opendir(directory);
     if (dir == NULL) {
-        perror("ERROR : Directory has not been opened!");
-        return 1;
+        // Directory does not exist, create it
+        int status = mkdir(directory, 0777);
+        if (status == -1) {
+            perror("ERROR : Directory could not be created");
+            return 1;
+        }
+        //printf("Directory created successfully\n");
     }
-    closedir(dir);
+    else{
+        closedir(dir);
+    }
+    
 
     // Create a socket
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
