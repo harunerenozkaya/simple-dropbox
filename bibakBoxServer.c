@@ -189,15 +189,60 @@ FILE* download_file(file_bibak file ,int* file_size_d) {
 // Handler for a client requests
 void *handle_client(void *arg) {
     int server_socket = *(int *)arg;
+    srand(time(0));
+    int new_server_socket = 0;
 
     while(run_flag == 1){
+        
+        // Accept client
+        int old_client_socket = accept(server_socket, NULL, NULL);
+        if (old_client_socket < 0) {
+            perror("Error accepting client connection");
+            continue;
+        }
 
-        int client_socket = accept(server_socket, NULL, NULL);
+        // Create random port number
+        int new_port = (rand() % (1000 + 1)) + 8000;
+
+        // Send new port to the client 
+        send(old_client_socket,&new_port,sizeof(new_port),0);
+
+        close(old_client_socket);
+
+        // Create new socket
+        new_server_socket = socket(AF_INET, SOCK_STREAM, 0);
+        if (new_server_socket < 0) {
+            perror("ERROR : Socket has not been created!");
+            continue;
+        }
+
+        // Set up server address
+        struct sockaddr_in new_serverAddress;
+        memset(&new_serverAddress,0,sizeof(new_serverAddress));
+        new_serverAddress.sin_family = AF_INET;
+        new_serverAddress.sin_port = htons(new_port);
+        new_serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+
+        // Bind the socket to the server address
+        if (bind(new_server_socket, (struct sockaddr*)&new_serverAddress, sizeof(new_serverAddress)) < 0) {
+            perror("Error binding socket");
+            continue;
+        }
+
+        // Listen for incoming connections
+        if (listen(new_server_socket, 0) < 0) {
+            perror("Error listening for connections");
+            continue;
+        }
+
+        // Accept client via new port
+        int client_socket = accept(new_server_socket, NULL, NULL);
         if (client_socket < 0) {
             perror("Error accepting client connection");
             continue;
         }
-       
+
+        printf("SUCCESS : A client (PORT : %d) is connected!\n",new_port);
 
         while (client_socket >= 0 && run_flag == 1) {
             // Read data from the client
@@ -460,7 +505,8 @@ void *handle_client(void *arg) {
             //Send the response
             strcpy(buffer,json);
             if(write(client_socket,buffer,sizeof(buffer)) < 0){
-                perror("ERROR : Response can not be sent to the server!\n");
+                //perror("ERROR : Response can not be sent to the server!\n");
+                break;
             }
 
             // Print response message
@@ -483,15 +529,19 @@ void *handle_client(void *arg) {
         }
 
 
-        printf("A client exited!...\n");
+        printf("WARNING : A client (PORT : %d) has been quit!...\n",new_port);
         close(client_socket);
     }
-    
+
+    close(server_socket);
+    close(new_server_socket);
+    exit(0);
 }
 
 int main(int argc, char* argv[]) {
     // Register SIGINT signal to handler
     signal(SIGINT, signal_handler);
+    signal(SIGPIPE, signal_handler);
 
     // Control if the argument count is okay
     if (argc < 4) {

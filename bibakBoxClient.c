@@ -9,7 +9,7 @@
 #include <signal.h>  
 
 #define BUFFER_SIZE 1024
-#define SERVER_IP_ADRESS "192.168.1.153"
+#define SERVER_IP_ADRESS "10.211.55.13"
 
 sig_atomic_t run_flag = 1;
 
@@ -728,11 +728,42 @@ int main(int argc, char* argv[]) {
         printf("ERROR : The server can not accept client more!\n");
         return 1;
     }
+    
+    // Receive new port
+    int new_port = 0;
+    recv(clientSocket,&new_port,sizeof(new_port),0);
+
+    close(clientSocket);
+
+    // Create a socket with IPV4 TCP protocol
+    int new_clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+    if (new_clientSocket < 0) {
+        perror("ERROR : Socket has not been created!");
+        return 1;
+    }
+
+    // Set up server address
+    struct sockaddr_in new_serverAddress;
+    new_serverAddress.sin_family = AF_INET;
+    new_serverAddress.sin_port = htons(new_port);
+    new_serverAddress.sin_addr.s_addr = inet_addr(SERVER_IP_ADRESS);
+
+    // Connect to the server
+    if (connect(new_clientSocket, (struct sockaddr*)&new_serverAddress, sizeof(new_serverAddress)) < 0) {
+        perror("ERROR : Couldn't be connected to server!");
+        return 1;
+    }
+
+    if(new_clientSocket < 0){
+        //Error Message
+        printf("ERROR : The server can not accept client more!\n");
+        return 1;
+    }
     else{
         // Success message
-        printf("SUCCESS : Connection has been established with Server.\n");
+        printf("SUCCESS : Connection (PORT : %d) has been established with Server.\n",new_port);
     }
-    
+
 
     //Initialize the log file as empty if it doesn't exist
     initialize_log_file(dirName);
@@ -763,13 +794,13 @@ int main(int argc, char* argv[]) {
 
         // Free requests memory
         free_request_memory(requests,request_count);
-
+        
         //Control directories for 1 second apart
         sleep(1);
     }
 
     // Close the client socket
-    close(clientSocket);
+    close(new_clientSocket);
     printf("Exiting...\n");
 
     return 0;
