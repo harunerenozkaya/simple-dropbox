@@ -332,6 +332,8 @@ void send_local_change_requests(int clientSocket, request* requests, int request
 
         memset(buffer, '\0', sizeof(buffer));
         free(res);
+        free(res->file.name);
+        free(res->file.path);
     }
 
 }
@@ -435,8 +437,11 @@ int compare_server_and_client_dir(dir_info_bibak* server_dir_info, dir_info_biba
 
                 }
 
+                free(client_relative_path);
                 break;
             }
+
+            free(client_relative_path);
         }
 
         if(isFound == 0){
@@ -461,6 +466,7 @@ int compare_server_and_client_dir(dir_info_bibak* server_dir_info, dir_info_biba
                 strcmp(client_relative_path, server_dir_info->files[j].path) == 0){
                 //File is found.
                 isFound = 1;
+                free(client_relative_path);
                 break;
             }
         }
@@ -474,6 +480,8 @@ int compare_server_and_client_dir(dir_info_bibak* server_dir_info, dir_info_biba
             create_request(&(*requests)[request_count - 1], DELETE, client_dir_info->files[i]);
         
         }
+
+        free(client_relative_path);
     }
 
 

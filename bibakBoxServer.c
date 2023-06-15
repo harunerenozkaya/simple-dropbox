@@ -9,6 +9,7 @@
 #include "network_io.c"
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <sys/file.h>
 
 #define BUFFER_SIZE 1024
 #define MAX_CLIENTS 10
@@ -32,6 +33,7 @@ FILE* upload_file(file_bibak file) {
     if (last_slash == NULL) {
         printf("Invalid file path: %s\n", file_path);
         free(path_copy);
+        free(file_path);
         return NULL;
     }
 
@@ -48,6 +50,7 @@ FILE* upload_file(file_bibak file) {
         if (result != 0) {
             printf("Error creating directory: %s\n", directory_path);
             free(path_copy);
+            free(file_path);
             return NULL;
         }
     }
@@ -56,6 +59,7 @@ FILE* upload_file(file_bibak file) {
     FILE* existing_file = fopen(file_path, "rb");
     if (existing_file != NULL) {
         fclose(existing_file);
+        free(path_copy);
         free(file_path);
         return NULL; // File with the same name already exists, return NULL as an error indicator
     }
@@ -63,9 +67,13 @@ FILE* upload_file(file_bibak file) {
     // Create the new file
     FILE* new_file = fopen(file_path, "wb");
     if (new_file == NULL) {
+        free(path_copy);
         free(file_path);
         return NULL; // Error creating the file, return NULL as an error indicator
     }
+
+    free(path_copy);
+    free(file_path);
 
     //printf("File created successfully: %s\n", file_path);
     return new_file;
@@ -219,11 +227,11 @@ void *handle_client(void *arg) {
         char* json = NULL;
 
         int is_valid = 0;
-        //pthread_mutex_lock(&log_mutex);
+
         switch(req->request_t){
             //UPLOAD
             case 0:
-                //pthread_mutex_lock(&log_mutex);
+
                 //Get File size
                 memset(buffer, '\0', sizeof(buffer));
                 file_data_length = req->file.size;
@@ -266,7 +274,7 @@ void *handle_client(void *arg) {
                 if(is_valid == 0){
                     res->response_t = 1;
                 }
-                //pthread_mutex_unlock(&log_mutex);
+       
                 break;
                 
             //DOWNLOAD
@@ -328,7 +336,7 @@ void *handle_client(void *arg) {
 
             //UPDATE
             case 3:
-                //pthread_mutex_lock(&log_mutex);
+
                 //Get File size
                 memset(buffer, 0, sizeof(buffer));
                 file_data_length = req->file.size;
@@ -372,11 +380,12 @@ void *handle_client(void *arg) {
                 if(is_valid == 0){
                     res->response_t = 1;
                 }
-                //pthread_mutex_unlock(&log_mutex);
+      
                 break;
 
             //LOG
             case 4:
+                pthread_mutex_lock(&log_mutex);
                 // Allocate the memory
                 dir_info_bibak* curr_dir_info = malloc(sizeof(dir_info_bibak));
                 curr_dir_info->total_file_count = 0;
@@ -389,6 +398,8 @@ void *handle_client(void *arg) {
                 // Convert server directory to the json to send
                 char* str = generate_dir_info_str(curr_dir_info,1,directory);
                 int length = strlen(str);
+
+                pthread_mutex_unlock(&log_mutex);
 
                 //Send to client the log file length
                 memset(buffer, '\0', sizeof(buffer));

@@ -151,9 +151,11 @@ int change_last_modification_time(char* file_path, const char* directory ,const 
     // Change the time
     if (utime(real_path, &new_times) != 0) {
         perror("utime");
+        free(real_path);
         return 1;
     }
 
+    free(real_path);
     return 0;
 }
 
