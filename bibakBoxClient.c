@@ -6,10 +6,19 @@
 #include <unistd.h>
 #include "network_io.c"
 #include <arpa/inet.h>
+#include <signal.h>  
 
 #define BUFFER_SIZE 1024
 #define SERVER_IP_ADRESS "192.168.1.153"
 
+sig_atomic_t run_flag = 1;
+
+// Signal handler
+void signal_handler(int signum) {
+    if (signum == SIGINT) {
+        run_flag = 0;
+    }
+}
 
 // Free memory
 void free_client_log_allocated_memory(dir_info_bibak* curr_dir_info, dir_info_bibak* log_dir_info, char* log_file_path) {
@@ -667,6 +676,8 @@ int update_log_file(char* dir_name){
 
 
 int main(int argc, char* argv[]) {
+    // Register SIGINT signal to handler
+    signal(SIGINT, signal_handler);
 
     // Control if the argument count is okay
     if (argc < 3) {
@@ -712,14 +723,22 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Success message
-    printf("SUCCESS : Connection has been established with Server.\n");
+    if(clientSocket < 0){
+        //Error Message
+        printf("ERROR : The server can not accept client more!\n");
+        return 1;
+    }
+    else{
+        // Success message
+        printf("SUCCESS : Connection has been established with Server.\n");
+    }
+    
 
     //Initialize the log file as empty if it doesn't exist
     initialize_log_file(dirName);
 
     //Start main loop
-    while(1){
+    while(run_flag == 1){
         //Control current client directory and log file and detect the differencies
         request* requests = NULL;
         int request_count = control_local_changes(dirName,clientSocket,&(requests));
@@ -751,6 +770,7 @@ int main(int argc, char* argv[]) {
 
     // Close the client socket
     close(clientSocket);
+    printf("Exiting...\n");
 
     return 0;
 }
