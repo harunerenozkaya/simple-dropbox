@@ -288,6 +288,7 @@ void *handle_client(void *arg) {
             char* json = NULL;
 
             int is_valid = 0;
+            int will_read = 0;
 
             switch(req->request_t){
                 //UPLOAD
@@ -307,7 +308,7 @@ void *handle_client(void *arg) {
                     bytesRead = 0;
                     writedByte = 0;
 
-                    int will_read = file_data_length < sizeof(buffer) ? file_data_length : sizeof(buffer); 
+                    will_read = file_data_length < sizeof(buffer) ? file_data_length : sizeof(buffer); 
                     while (writedByte < file_data_length && (bytesRead = recv(client_socket, buffer, will_read , 0)) > 0) {
                         //Write if the file is uploadable
 
@@ -317,7 +318,7 @@ void *handle_client(void *arg) {
                             fwrite(buffer,bytesRead,1,file_descriptor);
                         }
 
-                        will_read = will_read - writedByte < sizeof(buffer) ? will_read - writedByte : sizeof(buffer);
+                        will_read = file_data_length - writedByte < sizeof(buffer) ? file_data_length - writedByte : sizeof(buffer);
                     }
 
                     //Close the fd
@@ -410,13 +411,17 @@ void *handle_client(void *arg) {
                     //Get the file content         
                     bytesRead = 0;
                     writedByte = 0;
-                    while (writedByte < file_data_length && (bytesRead = recv(client_socket, buffer, sizeof(buffer),0)) > 0) {
+                    will_read = file_data_length < sizeof(buffer) ? file_data_length : sizeof(buffer); 
+                    while (writedByte < file_data_length && (bytesRead = recv(client_socket, buffer, will_read , 0)) > 0) {
                         //Write if the file is uploadable
+
                         writedByte += bytesRead;
 
                         if(file_descriptor != NULL){
                             fwrite(buffer,bytesRead,1,file_descriptor);
                         }
+                        
+                        will_read = file_data_length - writedByte < sizeof(buffer) ? file_data_length - writedByte : sizeof(buffer);
                     }
 
                     // Unlock the file
