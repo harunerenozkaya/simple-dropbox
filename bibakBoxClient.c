@@ -9,7 +9,6 @@
 #include <signal.h>  
 
 #define BUFFER_SIZE 1024
-#define SERVER_IP_ADRESS "10.211.55.13"
 
 sig_atomic_t run_flag = 1;
 
@@ -76,6 +75,42 @@ void free_request_memory(request* requests, int request_count) {
     free(requests);
 }
 
+// Write the request to activities log file
+void write_log_activities_file(char* base_dir , request req){
+
+    // Take the path of the activities log file
+    char* activities_log_file_path = malloc(strlen(base_dir) + strlen("/log_activities.txt") + 1);
+    strcpy(activities_log_file_path, base_dir);
+    strcat(activities_log_file_path, "/log_activities.txt");
+
+    // Prepare request log
+    int log_length = snprintf(NULL, 0, "\n===============================\n=======   Request Sent   ======\n===============================\n\nrequest_type : %d\nfile_name : %s\nfile_last_modified_time: %s\nfile_size:: %d\nfile_path: %s\n\n",req.request_t,req.file.name,req.file.last_modified_time,req.file.size,req.file.path);
+    
+    // Allocate memory for the log string
+    char* log = malloc((log_length + 1) * sizeof(char));
+
+    // Construct the log string
+    sprintf(log, "\n===============================\n=======   Request Sent   ======\n===============================\n\nrequest_type : %d\nfile_name : %s\nfile_last_modified_time: %s\nfile_size:: %d\nfile_path: %s\n\n",
+        req.request_t, req.file.name, req.file.last_modified_time, req.file.size, req.file.path);
+
+    // Open the log file in the append mode
+    FILE* fd = fopen(activities_log_file_path,"a");
+    if(fd == NULL){
+        printf("ERROR : Activities log file can not be opened!\n");
+        free(log);
+        return;
+    }
+
+    //Write the request
+    if(fwrite(log,strlen(log),1,fd) == 0){
+        printf("ERROR : Request couldn't be written to activities log file!\n");
+        free(log);
+        return;
+    }
+    
+    free(log);
+    fclose(fd);
+}
 
 
 //Initialize the log file as empty if it doesn't exist
@@ -100,7 +135,7 @@ void initialize_log_file(char* dir_name){
     }
     else
         fclose(fp);
-    
+
     free(log_file_path);
 }
 
@@ -250,7 +285,7 @@ void send_local_change_requests(int clientSocket, request* requests, int request
         //Send request to the server
         char* request_json = request_to_json(requests[i], BUFFER_SIZE);
         strcpy(buffer, request_json);
-        free(request_json);
+        
 
         send(clientSocket, buffer, sizeof(buffer), 0);
 
@@ -337,8 +372,11 @@ void send_local_change_requests(int clientSocket, request* requests, int request
         printf("======= Response Received ======");
         printf("\n===============================\n\n");
         printf("response_type : %s\n\n",res->response_t  == 0 ? "DONE" : "ERROR");
-        
 
+        // Open activities log file
+        write_log_activities_file(dirName,requests[i]);
+        
+        free(request_json);
         memset(buffer, '\0', sizeof(buffer));
         free(res);
     }
@@ -534,7 +572,7 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
         //Convert request to json
         char* request_json = request_to_json(requests[i], BUFFER_SIZE);
         strcpy(buffer, request_json);
-        free(request_json);
+        
 
         //Handle requests according to types
         switch (requests[i].request_t) {
@@ -612,9 +650,6 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
                 // Free allocated memory
                 free(res);
 
-                //If response status is error so rollback the operation
-                //TODO if there is an error delete created inner directories
-                
                 break;
 
             // DELETE    
@@ -634,6 +669,10 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
             }
         }
 
+        // Write activities log file
+        write_log_activities_file(dirName,requests[i]);
+
+        free(request_json);
         memset(buffer, '\0', sizeof(buffer));
     }
 
@@ -680,14 +719,15 @@ int main(int argc, char* argv[]) {
     signal(SIGINT, signal_handler);
 
     // Control if the argument count is okay
-    if (argc < 3) {
-        printf("Usage: %s [dirName] [portnumber]\n", argv[0]);
+    if (argc < 4) {
+        printf("Usage: %s [dirName] [portnumber] [serverIpAdress]\n", argv[0]);
         return 1;
     }
 
     // Extract arguments
     char* dirName = argv[1];
     int portNumber = atoi(argv[2]);
+    char* server_ip = argv[3];
 
     // Open or create the directory
     DIR* dir = opendir(dirName);
@@ -715,7 +755,7 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in serverAddress;
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(portNumber);
-    serverAddress.sin_addr.s_addr = inet_addr(SERVER_IP_ADRESS);
+    serverAddress.sin_addr.s_addr = inet_addr(server_ip);
 
     // Connect to the server
     if (connect(clientSocket, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0) {
@@ -746,7 +786,7 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in new_serverAddress;
     new_serverAddress.sin_family = AF_INET;
     new_serverAddress.sin_port = htons(new_port);
-    new_serverAddress.sin_addr.s_addr = inet_addr(SERVER_IP_ADRESS);
+    new_serverAddress.sin_addr.s_addr = inet_addr(server_ip);
 
     // Connect to the server
     if (connect(new_clientSocket, (struct sockaddr*)&new_serverAddress, sizeof(new_serverAddress)) < 0) {

@@ -286,7 +286,7 @@ int search_dir(const char* directory , dir_info_bibak* dir_info) {
     struct dirent* entry;
     while ((entry = readdir(dir)) != NULL) {
 
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0 && strcmp(entry->d_name, "log.txt")) {
+        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0 && strcmp(entry->d_name, "log.txt") != 0 && strcmp(entry->d_name, "log_activities.txt") != 0) {
             char path[1024];
             snprintf(path, sizeof(path), "%s/%s", directory, entry->d_name);
 
