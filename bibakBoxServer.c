@@ -18,7 +18,7 @@
 const char* directory;
 
 pthread_mutex_t log_mutex;
-pthread_mutex_t client_count_mutex;
+pthread_mutex_t op_mutex;
 sig_atomic_t run_flag = 1;
 
 int current_client_count = 0;
@@ -293,6 +293,7 @@ void *handle_client(void *arg) {
             switch(req->request_t){
                 //UPLOAD
                 case 0:
+                    pthread_mutex_lock(&op_mutex);
 
                     //Get File size
                     memset(buffer, '\0', sizeof(buffer));
@@ -321,6 +322,8 @@ void *handle_client(void *arg) {
                         will_read = file_data_length - writedByte < sizeof(buffer) ? file_data_length - writedByte : sizeof(buffer);
                     }
 
+                    pthread_mutex_unlock(&op_mutex);
+
                     //Close the fd
                     if(file_descriptor != NULL){
                         is_valid = 1;
@@ -342,6 +345,8 @@ void *handle_client(void *arg) {
                 //DOWNLOAD
                 case 1:
                     int file_size = 0;
+
+                    pthread_mutex_lock(&op_mutex);
 
                     //Get the file and size
                     memset(buffer, '\0', sizeof(buffer));
@@ -372,6 +377,7 @@ void *handle_client(void *arg) {
                         }
                     }
 
+                    pthread_mutex_unlock(&op_mutex);
                     //Close the fd
                     if(file_descriptor != NULL){
                         fclose(file_descriptor);
@@ -398,7 +404,7 @@ void *handle_client(void *arg) {
 
                 //UPDATE
                 case 3:
-
+                    pthread_mutex_lock(&op_mutex);
                     //Get File size
                     memset(buffer, 0, sizeof(buffer));
                     file_data_length = req->file.size;
@@ -430,6 +436,8 @@ void *handle_client(void *arg) {
                         close(fileno(file_descriptor));
                         return NULL;
                     }
+
+                    pthread_mutex_unlock(&op_mutex);
 
                     //Close the fd
                     if(file_descriptor != NULL){
@@ -465,8 +473,6 @@ void *handle_client(void *arg) {
                     char* str = generate_dir_info_str(curr_dir_info,1,directory);
                     int length = strlen(str);
 
-                    pthread_mutex_unlock(&log_mutex);
-
                     //Send to client the log file length
                     memset(buffer, '\0', sizeof(buffer));
                     sprintf(buffer,"%d",length);
@@ -485,6 +491,7 @@ void *handle_client(void *arg) {
 
                         start += chunk_size;
                     }
+                    pthread_mutex_unlock(&log_mutex);
                     
                     //Free allocated memories
                     free(str);

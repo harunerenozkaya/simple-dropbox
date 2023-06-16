@@ -432,7 +432,7 @@ char* get_server_log(int clientSocket) {
 
     // Allocate server_log memory according to log file size
     char* server_log = malloc((server_log_size) * sizeof(char));
-    memset(server_log, '\0', (server_log_size) * sizeof(char));
+    //memset(server_log, '\0', (server_log_size) * sizeof(char));
     memset(buffer, '\0', sizeof(buffer));
 
     //Read the log file content
