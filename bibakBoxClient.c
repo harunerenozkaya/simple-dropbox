@@ -301,6 +301,16 @@ void send_local_change_requests(int clientSocket, request* requests, int request
                 strcpy(req_s,"UPLOAD");
                 req_s[6] = '\0';
 
+                //Print request details
+                printf("\n===============================\n");
+                printf("=======   Request Sent   ======");
+                printf("\n===============================\n\n");
+                printf("request_type : %s\n",req_s);
+                printf("file_name : %s\n",requests[i].file.name);
+                printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
+                printf("file_size:: %d\n",requests[i].file.size);
+                printf("file_path: %s\n\n",requests[i].file.path);
+
                 // Open the file to be uploaded
                 memset(buffer, 0, sizeof(buffer));
                 FILE* file = fopen(requests[i].file.path, "rb");
@@ -324,6 +334,16 @@ void send_local_change_requests(int clientSocket, request* requests, int request
                 strcpy(req_s,"DELETE");
                 req_s[6] = '\0';
 
+                //Print request details
+                printf("\n===============================\n");
+                printf("=======   Request Sent   ======");
+                printf("\n===============================\n\n");
+                printf("request_type : %s\n",req_s);
+                printf("file_name : %s\n",requests[i].file.name);
+                printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
+                printf("file_size:: %d\n",requests[i].file.size);
+                printf("file_path: %s\n\n",requests[i].file.path);
+
                 memset(buffer, 0, sizeof(buffer));
                 break;
             }
@@ -334,6 +354,16 @@ void send_local_change_requests(int clientSocket, request* requests, int request
                 // Assign str req
                 strcpy(req_s,"UPDATE");
                 req_s[6] = '\0';
+
+                //Print request details
+                printf("\n===============================\n");
+                printf("=======   Request Sent   ======");
+                printf("\n===============================\n\n");
+                printf("request_type : %s\n",req_s);
+                printf("file_name : %s\n",requests[i].file.name);
+                printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
+                printf("file_size:: %d\n",requests[i].file.size);
+                printf("file_path: %s\n\n",requests[i].file.path);
 
                 // Open the file to be updated 
                 memset(buffer, 0, sizeof(buffer));
@@ -354,15 +384,7 @@ void send_local_change_requests(int clientSocket, request* requests, int request
             }
         }
 
-        //Print request details
-        printf("\n===============================\n");
-        printf("=======   Request Sent   ======");
-        printf("\n===============================\n\n");
-        printf("request_type : %s\n",req_s);
-        printf("file_name : %s\n",requests[i].file.name);
-        printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
-        printf("file_size:: %d\n",requests[i].file.size);
-        printf("file_path: %s\n\n",requests[i].file.path);
+        
    
 
         //Get the response and print
@@ -578,7 +600,17 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
         switch (requests[i].request_t) {
 
             // DOWNLOAD
-            case 1: 
+            case 1:
+                //Print request details
+                printf("\n===============================\n");
+                printf("=======   Request Sent   ======");
+                printf("\n===============================\n\n");
+                printf("request_type : %s\n","DOWNLOAD");
+                printf("file_name : %s\n",requests[i].file.name);
+                printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
+                printf("file_size:: %d\n",requests[i].file.size);
+                printf("file_path: %s\n\n",requests[i].file.path);
+                
                 // Send request to the server
                 send(clientSocket, buffer, sizeof(buffer), 0);
                 memset(buffer, '\0', sizeof(buffer));
@@ -628,15 +660,6 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
                     change_last_modification_time(requests[i].file.path,dirName,requests[i].file.last_modified_time);
                 }
 
-                //Print request details
-                printf("\n===============================\n");
-                printf("=======   Request Sent   ======");
-                printf("\n===============================\n\n");
-                printf("request_type : %s\n","DOWNLOAD");
-                printf("file_name : %s\n",requests[i].file.name);
-                printf("file_last_modified_time: %s\n",requests[i].file.last_modified_time);
-                printf("file_size:: %d\n",requests[i].file.size);
-                printf("file_path: %s\n\n",requests[i].file.path);
 
                 //Response
                 read(clientSocket, buffer, sizeof(buffer));
