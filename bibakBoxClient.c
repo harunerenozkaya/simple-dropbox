@@ -607,7 +607,7 @@ void send_server_change_requests(int clientSocket, request* requests, int reques
                         fwrite(buffer,bytesRead,1,file_descriptor);
                     }
 
-                    will_read = will_read - writedByte < sizeof(buffer) ? will_read - writedByte : sizeof(buffer);
+                    will_read = file_data_length - writedByte < sizeof(buffer) ? file_data_length - writedByte : sizeof(buffer);
                 }
 
                 //If file can not be opened properly
